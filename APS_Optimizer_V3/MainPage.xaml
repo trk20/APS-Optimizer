@@ -14,107 +14,120 @@
     <Grid Padding="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
-            <!-- Let top row take available space -->
+            <!-- Content Area -->
             <RowDefinition Height="Auto" />
-            <!-- Controls row sized to content -->
+            <!-- Bottom Controls -->
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
-            <!-- Let left column take available space -->
+            <!-- Left Area (Editor + Result) -->
             <ColumnDefinition Width="Auto" />
-            <!-- Right column sized to content -->
+            <!-- Right Area (Shapes) -->
         </Grid.ColumnDefinitions>
-        <!-- Left Side: Editor and Result -->
-        <StackPanel Grid.Row="0"
-                    Grid.Column="0"
-                    Spacing="10">
-            <!-- Grid Editor -->
-            <TextBlock Text="Grid Editor:"
-                       Style="{ThemeResource SubtitleTextBlockStyle}" />
-            <Border BorderBrush="Gray"
-                    BorderThickness="1"
-                    HorizontalAlignment="Left">
-                <!-- Align border to left -->
-                <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                              VerticalScrollBarVisibility="Auto"
-                              MaxHeight="400">
-                    <!-- **** BIND WIDTH HERE **** -->
-                    <ItemsRepeater ItemsSource="{Binding GridEditorCells}"
-                                   Width="{Binding CalculatedGridTotalWidth}">
-                        <ItemsRepeater.Layout>
-                            <UniformGridLayout MinItemWidth="15"
-                                               MinItemHeight="15"
-                                               Orientation="Horizontal"
-                                               MinColumnSpacing="1"
-                                               MinRowSpacing="1"
-                                               ItemsJustification="Start"
-                                               ItemsStretch="None" />
-                        </ItemsRepeater.Layout>
-                        <ItemsRepeater.ItemTemplate>
-                            <DataTemplate x:DataType="viewmodels:CellViewModel">
-                                <Button Background="{Binding Background}"
-                                        Command="{Binding CellClickedCommand}"
-                                        MinWidth="15"
-                                        MinHeight="15"
-                                        Padding="0"
-                                        Margin="0"
-                                        BorderThickness="0.5"
-                                        BorderBrush="LightGray"
-                                        VerticalAlignment="Stretch"
-                                        HorizontalAlignment="Stretch" />
-                            </DataTemplate>
-                        </ItemsRepeater.ItemTemplate>
-                    </ItemsRepeater>
-                </ScrollViewer>
-            </Border>
-            <!-- Result Grid -->
-            <TextBlock Text="Result:"
-                       Style="{ThemeResource SubtitleTextBlockStyle}" />
-            <Border BorderBrush="Gray"
-                    BorderThickness="1"
-                    HorizontalAlignment="Left">
-                <!-- Align border to left -->
-                <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                              VerticalScrollBarVisibility="Auto"
-                              MaxHeight="400">
-                    <!-- **** BIND WIDTH HERE **** -->
-                    <ItemsRepeater ItemsSource="{Binding ResultGridCells}"
-                                   Width="{Binding CalculatedGridTotalWidth}">
-                        <ItemsRepeater.Layout>
-                            <UniformGridLayout MinItemWidth="15"
-                                               MinItemHeight="15"
-                                               Orientation="Horizontal"
-                                               MinColumnSpacing="1"
-                                               MinRowSpacing="1"
-                                               ItemsJustification="Start"
-                                               ItemsStretch="None" />
-                        </ItemsRepeater.Layout>
-                        <ItemsRepeater.ItemTemplate>
-                            <DataTemplate x:DataType="viewmodels:CellViewModel">
-                                <Border Background="{Binding Background}"
-                                        MinWidth="15"
-                                        MinHeight="15"
-                                        BorderThickness="0.5"
-                                        BorderBrush="LightGray">
-                                    <TextBlock Text="{Binding DisplayNumber}"
-                                               Foreground="Black"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"
-                                               FontSize="8" />
-                                </Border>
-                            </DataTemplate>
-                        </ItemsRepeater.ItemTemplate>
-                    </ItemsRepeater>
-                </ScrollViewer>
-            </Border>
-        </StackPanel>
+        <!-- === Left Side: Editor and Result Grids Side-by-Side === -->
+        <!-- Replace StackPanel with Grid -->
+        <Grid Grid.Row="0"
+              Grid.Column="0"
+              ColumnSpacing="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <!-- Editor Area -->
+                <ColumnDefinition Width="*" />
+                <!-- Result Area -->
+            </Grid.ColumnDefinitions>
+            <!-- Editor Grid Area -->
+            <StackPanel Grid.Column="0"
+                        Spacing="5">
+                <TextBlock Text="Grid Editor:"
+                           Style="{ThemeResource SubtitleTextBlockStyle}" />
+                <Border BorderBrush="Gray"
+                        BorderThickness="1"
+                        HorizontalAlignment="Left">
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  MaxHeight="400">
+                        <ItemsRepeater ItemsSource="{Binding GridEditorCells}"
+                                       Width="{Binding CalculatedGridTotalWidth}">
+                            <ItemsRepeater.Layout>
+                                <UniformGridLayout MinItemWidth="15"
+                                                   MinItemHeight="15"
+                                                   Orientation="Horizontal"
+                                                   MinColumnSpacing="1"
+                                                   MinRowSpacing="1"
+                                                   ItemsJustification="Start"
+                                                   ItemsStretch="None" />
+                            </ItemsRepeater.Layout>
+                            <ItemsRepeater.ItemTemplate>
+                                <DataTemplate x:DataType="viewmodels:CellViewModel">
+                                    <Button Background="{Binding Background}"
+                                            Command="{Binding CellClickedCommand}"
+                                            MinWidth="15"
+                                            MinHeight="15"
+                                            Padding="0"
+                                            Margin="0"
+                                            BorderThickness="0.5"
+                                            BorderBrush="LightGray"
+                                            VerticalAlignment="Stretch"
+                                            HorizontalAlignment="Stretch" />
+                                </DataTemplate>
+                            </ItemsRepeater.ItemTemplate>
+                        </ItemsRepeater>
+                    </ScrollViewer>
+                </Border>
+            </StackPanel>
+            <!-- Result Grid Area -->
+            <StackPanel Grid.Column="1"
+                        Spacing="5">
+                <TextBlock Text="Result:"
+                           Style="{ThemeResource SubtitleTextBlockStyle}" />
+                <Border BorderBrush="Gray"
+                        BorderThickness="1"
+                        HorizontalAlignment="Left">
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  MaxHeight="400">
+                        <ItemsRepeater ItemsSource="{Binding ResultGridCells}"
+                                       Width="{Binding CalculatedGridTotalWidth}">
+                            <ItemsRepeater.Layout>
+                                <UniformGridLayout MinItemWidth="15"
+                                                   MinItemHeight="15"
+                                                   Orientation="Horizontal"
+                                                   MinColumnSpacing="1"
+                                                   MinRowSpacing="1"
+                                                   ItemsJustification="Start"
+                                                   ItemsStretch="None" />
+                            </ItemsRepeater.Layout>
+                            <ItemsRepeater.ItemTemplate>
+                                <DataTemplate x:DataType="viewmodels:CellViewModel">
+                                    <Border Background="{Binding Background}"
+                                            MinWidth="15"
+                                            MinHeight="15"
+                                            BorderThickness="0.5"
+                                            BorderBrush="LightGray">
+                                        <TextBlock Text="{Binding DisplayNumber}"
+                                                   Foreground="Black"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="8" />
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsRepeater.ItemTemplate>
+                        </ItemsRepeater>
+                    </ScrollViewer>
+                </Border>
+            </StackPanel>
+        </Grid>
+        <!-- Right Side: Shapes (MODIFIED COLUMN WIDTH) -->
         <StackPanel Grid.Row="0"
                     Grid.Column="1"
                     Spacing="10"
-                    MinWidth="250">
+                    MinWidth="250"
+                    Padding="10">
             <TextBlock Text="Shapes:"
                        Style="{ThemeResource SubtitleTextBlockStyle}" />
-            <ListView ItemsSource="{Binding AvailableShapes}"
+            <!-- Give the ListView a Name to reference in Binding -->
+            <ListView x:Name="ShapesListView"
+                      ItemsSource="{Binding AvailableShapes}"
                       MaxHeight="600"
                       SelectionMode="None">
                 <ListView.ItemTemplate>
@@ -122,38 +135,29 @@
                         <Grid ColumnSpacing="10"
                               Margin="0,5">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <!-- Preview -->
+                                <!-- **** Bind Width using RelativeSource **** -->
+                                <ColumnDefinition Width="{Binding DataContext.MaxPreviewColumnWidth, ElementName=ShapesListView}" />
+                                <!-- ****************************************** -->
                                 <ColumnDefinition Width="*" />
-                                <!-- Controls -->
+                                <!-- Controls Col -->
                             </Grid.ColumnDefinitions>
-                            <!-- **** Shape Preview Area using ContentPresenter **** -->
+                            <!-- Shape Preview Area (Keep Centered) -->
                             <Border Grid.Column="0"
                                     BorderBrush="LightGray"
                                     BorderThickness="1"
                                     VerticalAlignment="Center"
                                     HorizontalAlignment="Center"
                                     Padding="1">
-                                <!-- Optional small padding around the inner grid -->
                                 <ContentControl Content="{Binding PreviewGrid}" />
-                                <!-- ContentPresenter displays the Grid generated in the ViewModel -->
-                                <!-- No ItemsRepeater or explicit layout needed here -->
                             </Border>
-                            <!-- *************************************************** -->
-                            <!-- Name, Checkbox, and Rotate Button -->
+                            <!-- Name, Checkbox (Keep Top Aligned) -->
                             <StackPanel Grid.Column="1"
-                                        VerticalAlignment="Center"
-                                        Spacing="5">
+                                        VerticalAlignment="Top"
+                                        Spacing="0">
                                 <TextBlock Text="{Binding Name}"
                                            FontWeight="SemiBold" />
-                                <CheckBox Content="Use in Solve"
-                                          IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                <CheckBox IsChecked="{Binding IsEnabled, Mode=TwoWay}"
                                           VerticalAlignment="Center" />
-                                <Button Content="Rotate"
-                                        Command="{Binding RotateCommand}"
-                                        IsEnabled="{Binding RotateCommand.CanExecute, Mode=OneWay}"
-                                        Padding="5,2"
-                                        HorizontalAlignment="Left" />
                             </StackPanel>
                         </Grid>
                     </DataTemplate>
@@ -162,32 +166,32 @@
             <Button Content="Add Shape"
                     Command="{Binding AddShapeCommand}" />
         </StackPanel>
-        <!-- Bottom: Controls (No changes needed here) -->
+        <!-- ================================================= -->
+        <!-- Bottom: Controls (No Changes) -->
         <StackPanel Grid.Row="1"
                     Grid.Column="0"
                     Grid.ColumnSpan="2"
                     Orientation="Horizontal"
-                    Spacing="10"
+                    Spacing="15"
                     HorizontalAlignment="Right">
-            <!-- TODO: Add Grid Size Controls (NumberBox?) -->
             <TextBlock Text="Grid Width:"
                        VerticalAlignment="Center" />
             <NumberBox Value="{Binding GridWidth, Mode=TwoWay}"
                        SpinButtonPlacementMode="Inline"
-                       Minimum="3"
-                       Maximum="50"
+                       Minimum="5"
+                       Maximum="31"
                        SmallChange="2"
                        LargeChange="10"
-                       Width="100" />
+                       Width="150" />
             <TextBlock Text="Grid Height:"
                        VerticalAlignment="Center" />
             <NumberBox Value="{Binding GridHeight, Mode=TwoWay}"
                        SpinButtonPlacementMode="Inline"
-                       Minimum="3"
-                       Maximum="50"
+                       Minimum="5"
+                       Maximum="31"
                        SmallChange="2"
                        LargeChange="10"
-                       Width="100" />
+                       Width="150" />
             <Button Content="Solve"
                     Command="{Binding SolveCommand}"
                     Style="{ThemeResource AccentButtonStyle}" />

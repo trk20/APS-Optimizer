@@ -18,6 +18,8 @@ public partial class MainViewModel : ViewModelBase
     private int _gridHeight = 23;
     private const double CellWidth = 15.0; // Define constants for clarity
     private const double CellSpacing = 1.0;
+    public const double PreviewCellSize = 10.0;
+    public const double PreviewCellSpacing = 1.0;
 
     public int GridWidth // Make sure setter notifies CalculatedGridTotalWidth
     {
@@ -45,20 +47,76 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
+    // --- Calculated Property for Max Preview Width ---
+    public double MaxPreviewColumnWidth
+    {
+        get
+        {
+            if (!AvailableShapes.Any())
+            {
+                return PreviewCellSize * 4; // Default minimum width if no shapes
+            }
+
+            int maxDimension = 0;
+            foreach (var shape in AvailableShapes)
+            {
+                foreach (var rotationGrid in shape.GetAllRotationGrids())
+                {
+                    int rows = rotationGrid.GetLength(0);
+                    int cols = rotationGrid.GetLength(1);
+                    maxDimension = Math.Max(maxDimension, Math.Max(rows, cols));
+                }
+            }
+
+            if (maxDimension <= 0) maxDimension = 4; // Fallback if shapes somehow have 0 dimension
+
+            // Calculate pixel width based on max dimension
+            double width = (maxDimension * PreviewCellSize) + ((Math.Max(0, maxDimension - 1)) * PreviewCellSpacing);
+            // Add padding/border allowance if the Border element has padding
+            width += 2; // Add 2 pixels for the Border's Padding="1"
+
+            return width;
+        }
+    }
+    // ---------------------------------------------
+
     public ObservableCollection<CellViewModel> GridEditorCells { get; } = new();
     public ObservableCollection<CellViewModel> ResultGridCells { get; } = new();
     public ObservableCollection<ShapeViewModel> AvailableShapes { get; } = new();
 
-    // Constructor and InitializeShapes etc. remain the same
     public MainViewModel()
     {
-        // Default values
-        _gridWidth = 23;
-        _gridHeight = 23;
+        // Handle collection changes to dispose removed items
+        AvailableShapes.CollectionChanged += AvailableShapes_CollectionChanged;
 
         InitializeGridEditor();
         InitializeResultGrid();
         InitializeShapes();
+    }
+
+    // --- Cleanup Logic for Shapes ---
+    private void AvailableShapes_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        // If items were removed or the list was reset, dispose them
+        if (e.OldItems != null)
+        {
+            foreach (var item in e.OldItems)
+            {
+                if (item is IDisposable disposable)
+                {
+                    Debug.WriteLine($"Disposing removed shape: {(item as ShapeViewModel)?.Name ?? "Unknown"}");
+                    disposable.Dispose();
+                }
+            }
+        }
+        OnPropertyChanged(nameof(MaxPreviewColumnWidth));
+        if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
+        {
+            // This case is harder as OldItems is null. If you use Clear(),
+            // you might need to iterate _before_ clearing or keep a separate list temporarily.
+            // For simplicity, assume Clear() isn't used or handle it carefully.
+            Debug.WriteLine("AvailableShapes collection was Reset. Manual disposal might be needed if Clear() was used without prior disposal.");
+        }
     }
 
 
@@ -200,4 +258,31 @@ public partial class MainViewModel : ViewModelBase
     }
     // Calculated property for grid width
     public double CalculatedGridTotalWidth => GridWidth <= 0 ? CellWidth : (GridWidth * CellWidth) + ((Math.Max(0, GridWidth - 1)) * CellSpacing);
+
+    private bool _disposed = false;
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposed)
+        {
+            if (disposing)
+            {
+                // Dispose managed state.
+                Debug.WriteLine("Disposing MainViewModel");
+                AvailableShapes.CollectionChanged -= AvailableShapes_CollectionChanged; // Unsubscribe
+                foreach (var shape in AvailableShapes)
+                {
+                    shape.Dispose(); // Dispose each shape timer
+                }
+                AvailableShapes.Clear(); // Clear the collection
+            }
+            _disposed = true;
+        }
+    }
+
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+
 }

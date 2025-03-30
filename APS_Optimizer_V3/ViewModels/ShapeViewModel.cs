@@ -9,35 +9,60 @@ using Microsoft.UI; // Correct namespace
 
 namespace APS_Optimizer_V3.ViewModels;
 using Point = System.ValueTuple<int, int>;
-
-public partial class ShapeViewModel : ViewModelBase
+public partial class ShapeViewModel : ViewModelBase, IDisposable
 {
     private string _name = "Unnamed Shape";
     private int _currentRotationIndex = 0;
     private List<bool[,]> _rotations = new List<bool[,]>();
     private bool _isEnabled = true;
-
-    // --- Property to hold the generated UI Grid ---
     private Grid? _previewGrid;
-    public Grid? PreviewGrid { get => _previewGrid; private set => SetProperty(ref _previewGrid, value); }
-    // --------------------------------------------
 
-    public bool IsEnabled { get => _isEnabled; set => SetProperty(ref _isEnabled, value); }
+    // --- Timer for auto-rotation ---
+    private DispatcherTimer? _autoRotateTimer;
+    private readonly TimeSpan _rotateInterval = TimeSpan.FromSeconds(1.2); // Adjust interval as needed
+                                                                           // --------------------------------
+
+    public Grid? PreviewGrid { get => _previewGrid; private set => SetProperty(ref _previewGrid, value); }
+
+    public bool IsEnabled
+    {
+        get => _isEnabled;
+        set
+        {
+            if (SetProperty(ref _isEnabled, value))
+            {
+                // Start/Stop timer based on whether the shape is enabled
+                if (_isEnabled)
+                {
+                    StartAutoRotation();
+                }
+                else
+                {
+                    StopAutoRotation();
+                }
+            }
+        }
+    }
     public string Name { get => _name; set => SetProperty(ref _name, value); }
 
-    // Keep dimensions for reference if needed, but not primary layout drivers now
+    // PreviewWidth/Height might still be useful for other logic, keep if needed
     private int _previewWidth = 0;
     public int PreviewWidth { get => _previewWidth; private set => SetProperty(ref _previewWidth, value); }
     private int _previewHeight = 0;
     public int PreviewHeight { get => _previewHeight; private set => SetProperty(ref _previewHeight, value); }
 
-    private const double PreviewCellSize = 10.0; // Size of each cell Border
+    private const double PreviewCellSize = 10.0;
 
     public ShapeViewModel(string name, bool[,] baseShape)
     {
         Name = name;
         GenerateRotations(baseShape);
         UpdatePreview(); // Initial grid generation
+                         // Start timer only if enabled and has rotations
+        if (IsEnabled)
+        {
+            StartAutoRotation();
+        }
     }
 
     // GenerateRotations, RotateMatrix, GetMatrixSignature remain the same...
@@ -54,8 +79,6 @@ public partial class ShapeViewModel : ViewModelBase
             current = RotateMatrix(current);
         }
         Debug.WriteLine($"Generated {_rotations.Count} unique rotations for {Name}.");
-        // Force CanExecute update after rotations are known
-        RotateCommand.NotifyCanExecuteChanged();
     }
     private string GetMatrixSignature(bool[,] matrix)
     { /* ... as before ... */
@@ -77,97 +100,114 @@ public partial class ShapeViewModel : ViewModelBase
     }
 
 
-    private void UpdatePreview()
+    private void UpdatePreview() // No functional changes needed here
     {
-        if (_rotations.Count == 0)
-        {
-            PreviewGrid = null; // Clear grid if no rotations
-            return;
-        }
-
+        if (_rotations.Count == 0) { PreviewGrid = null; return; }
         _currentRotationIndex = _currentRotationIndex % _rotations.Count;
         bool[,] currentShape = _rotations[_currentRotationIndex];
-
-        // Update dimension properties (might be useful elsewhere)
         PreviewHeight = currentShape.GetLength(0);
         PreviewWidth = currentShape.GetLength(1);
-        OnPropertyChanged(nameof(PreviewWidth));
-        OnPropertyChanged(nameof(PreviewHeight));
+        OnPropertyChanged(nameof(PreviewWidth)); OnPropertyChanged(nameof(PreviewHeight));
 
-        // --- Create the Grid UI Element Programmatically ---
-        var newGrid = new Grid
-        {
-            // Set overall MinWidth/MinHeight to prevent grid collapsing if empty,
-            // but actual size will be determined by row/col definitions.
-            // Optional: Add small padding or margin if needed
-            // Background = new SolidColorBrush(Colors.Transparent) // For debugging layout
-        };
+        var newGrid = new Grid();
+        for (int r = 0; r < PreviewHeight; r++) newGrid.RowDefinitions.Add(new RowDefinition() { Height = new GridLength(PreviewCellSize) });
+        for (int c = 0; c < PreviewWidth; c++) newGrid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(PreviewCellSize) });
 
-        // Add Row Definitions
-        for (int r = 0; r < PreviewHeight; r++)
-        {
-            // Use fixed size for preview cells
-            newGrid.RowDefinitions.Add(new RowDefinition() { Height = new GridLength(PreviewCellSize) });
-        }
-        // Add Column Definitions
-        for (int c = 0; c < PreviewWidth; c++)
-        {
-            newGrid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(PreviewCellSize) });
-        }
-
-        // Add Border elements for EACH cell in the bounding box
         for (int r = 0; r < PreviewHeight; r++)
         {
             for (int c = 0; c < PreviewWidth; c++)
             {
-                // Determine background color based on shape data
-                Brush backgroundBrush;
-                if (currentShape[r, c]) // If part of the shape
-                {
-                    backgroundBrush = new SolidColorBrush(Colors.DarkCyan); // Shape color
-                }
-                else // Empty cell within the shape's bounding box
-                {
-                    // Transparent makes it blend with the background
-                    backgroundBrush = new SolidColorBrush(Colors.Transparent);
-                }
-
-                var border = new Border
-                {
-                    Background = backgroundBrush,
-                    // Add a subtle border to all cells for visual structure
-                    BorderBrush = new SolidColorBrush(Colors.DimGray),
-                    BorderThickness = new Thickness(0.5)
-                    // Width/Height set by Grid Row/Column Definition
-                };
-
-                // Set the row and column for the Border within the Grid
-                Grid.SetRow(border, r);
-                Grid.SetColumn(border, c);
-
-                // Add the configured Border to the Grid's children
+                Brush backgroundBrush = currentShape[r, c] ? new SolidColorBrush(Colors.DarkCyan) : new SolidColorBrush(Colors.Transparent);
+                var border = new Border { Background = backgroundBrush, BorderBrush = new SolidColorBrush(Colors.DimGray), BorderThickness = new Thickness(0.5) };
+                Grid.SetRow(border, r); Grid.SetColumn(border, c);
                 newGrid.Children.Add(border);
             }
         }
-
-        // Update the public property, triggering UI update
         PreviewGrid = newGrid;
-        // ------------------------------------------------
-
         Debug.WriteLine($"Updated preview grid for {Name} to rotation {_currentRotationIndex} ({PreviewWidth}x{PreviewHeight})");
     }
 
-
-    [RelayCommand(CanExecute = nameof(CanRotate))]
-    private void Rotate()
+    // --- Timer Management Methods ---
+    private void StartAutoRotation()
     {
-        if (!CanRotate()) return; // Guard clause
-        _currentRotationIndex++;
-        UpdatePreview();
+        // Only start if rotations > 1 and timer isn't already running
+        if (_rotations.Count <= 1 || _autoRotateTimer != null)
+        {
+            return;
+        }
+
+        Debug.WriteLine($"Starting auto-rotation for {Name}");
+        _autoRotateTimer = new DispatcherTimer();
+        _autoRotateTimer.Interval = _rotateInterval;
+        _autoRotateTimer.Tick += Timer_Tick;
+        _autoRotateTimer.Start();
     }
 
-    // CanExecute depends only on the number of rotations
-    private bool CanRotate() => _rotations.Count > 1;
+    private void StopAutoRotation()
+    {
+        if (_autoRotateTimer != null)
+        {
+            Debug.WriteLine($"Stopping auto-rotation for {Name}");
+            _autoRotateTimer.Stop();
+            _autoRotateTimer.Tick -= Timer_Tick; // Unsubscribe event handler
+            _autoRotateTimer = null;
+        }
+    }
+
+    private void Timer_Tick(object? sender, object e)
+    {
+        // This code runs on the UI thread thanks to DispatcherTimer
+        if (_rotations.Count > 1)
+        {
+            _currentRotationIndex++; // Increment index first
+            UpdatePreview(); // Update the visual preview
+        }
+        else
+        {
+            // Should not happen if timer started correctly, but stop just in case
+            StopAutoRotation();
+        }
+    }
+    // -----------------------------
+
+    // --- IDisposable Implementation for Cleanup ---
+    private bool _disposed = false; // To detect redundant calls
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposed)
+        {
+            if (disposing)
+            {
+                // Dispose managed state (managed objects).
+                StopAutoRotation(); // Ensure timer is stopped and resources released
+            }
+
+            // Free unmanaged resources (unmanaged objects) and override finalizer
+            // Set large fields to null
+            _previewGrid = null; // Allow the UI grid to be garbage collected
+            _rotations.Clear();
+
+            _disposed = true;
+        }
+    }
+
+    // Public Dispose method
+    public void Dispose()
+    {
+        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this); // Suppress finalization check by the GC
+    }
+
+    // Optional Finalizer (uncomment if you have unmanaged resources)
+    // ~ShapeViewModel()
+    // {
+    //     // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+    //     Dispose(disposing: false);
+    // }
+    // -------------------------------------------
+
 
     // GetCurrentRotationGrid, GetAllRotationGrids remain the same...
     public bool[,] GetCurrentRotationGrid()
