@@ -15,4 +15,5 @@ public sealed partial class ShapeEditorDialog : ContentDialog
         this.InitializeComponent();
         // DataContext should be set *before* calling ShowAsync
     }
+
 }

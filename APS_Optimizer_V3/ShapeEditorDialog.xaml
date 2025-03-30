@@ -13,8 +13,6 @@
                DefaultButton="Primary"
                MinHeight="400"
                MinWidth="400">
-    <!-- Set DataContext in code-behind or via Binding if needed elsewhere -->
-    <!-- For simplicity, assume DataContext is set before showing -->
     <StackPanel Spacing="10">
         <!-- Name -->
         <TextBox Header="Shape Name:"
@@ -46,12 +44,12 @@
                           VerticalScrollBarVisibility="Auto"
                           MaxHeight="400"
                           MaxWidth="600">
-                <!-- Limit scroll size -->
-                <!-- Bind Width to calculated property -->
+                <!-- **** Add MaxWidth Binding **** -->
                 <ItemsRepeater ItemsSource="{Binding EditorCells}"
-                               Width="{Binding CalculatedEditorGridWidth}">
+                               Width="{Binding CalculatedEditorGridWidth}"
+                               MaxWidth="{Binding CalculatedEditorGridWidth}">
+                    <!-- ***************************** -->
                     <ItemsRepeater.Layout>
-                        <!-- Use constants from ViewModel or define here -->
                         <UniformGridLayout MinItemWidth="20"
                                            MinItemHeight="20"
                                            Orientation="Horizontal"
@@ -62,7 +60,6 @@
                     </ItemsRepeater.Layout>
                     <ItemsRepeater.ItemTemplate>
                         <DataTemplate x:DataType="viewmodels:CellViewModel">
-                            <!-- Use Button for easy click handling -->
                             <Button Background="{Binding Background}"
                                     Command="{Binding CellClickedCommand}"
                                     MinWidth="20"
