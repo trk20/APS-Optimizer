@@ -111,65 +111,49 @@
         <StackPanel Grid.Row="0"
                     Grid.Column="1"
                     Spacing="10"
-                    MinWidth="200">
+                    MinWidth="250">
             <TextBlock Text="Shapes:"
                        Style="{ThemeResource SubtitleTextBlockStyle}" />
             <ListView ItemsSource="{Binding AvailableShapes}"
                       MaxHeight="600"
                       SelectionMode="None">
-                <!-- Typically don't need selection visual for this list -->
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="viewmodels:ShapeViewModel">
-                        <!-- Use Grid for better alignment within the list item -->
-                        <Grid ColumnSpacing="5"
+                        <Grid ColumnSpacing="10"
                               Margin="0,5">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
-                                <!-- Shape Preview -->
+                                <!-- Preview -->
                                 <ColumnDefinition Width="*" />
-                                <!-- Name and Rotate Button -->
+                                <!-- Controls -->
                             </Grid.ColumnDefinitions>
-                            <!-- Shape Preview Area -->
+                            <!-- **** Shape Preview Area using ContentPresenter **** -->
                             <Border Grid.Column="0"
                                     BorderBrush="LightGray"
                                     BorderThickness="1"
-                                    VerticalAlignment="Center">
-                                <!-- Bind Width to CalculatedPreviewWidth -->
-                                <ItemsRepeater ItemsSource="{Binding PreviewCells}"
-                                               Width="{Binding CalculatedPreviewWidth}">
-                                    <ItemsRepeater.Layout>
-                                        <!-- Use constants matching ShapeViewModel -->
-                                        <UniformGridLayout MinItemWidth="10"
-                                                           MinItemHeight="10"
-                                                           Orientation="Horizontal"
-                                                           MinColumnSpacing="1"
-                                                           MinRowSpacing="1"
-                                                           ItemsJustification="Start"
-                                                           ItemsStretch="None" />
-                                    </ItemsRepeater.Layout>
-                                    <ItemsRepeater.ItemTemplate>
-                                        <DataTemplate x:DataType="viewmodels:CellViewModel">
-                                            <!-- Simple Border for display -->
-                                            <Border Background="{Binding Background}"
-                                                    MinWidth="10"
-                                                    MinHeight="10"
-                                                    BorderThickness="0.5"
-                                                    BorderBrush="DimGray" />
-                                        </DataTemplate>
-                                    </ItemsRepeater.ItemTemplate>
-                                </ItemsRepeater>
+                                    VerticalAlignment="Center"
+                                    HorizontalAlignment="Center"
+                                    Padding="1">
+                                <!-- Optional small padding around the inner grid -->
+                                <ContentControl Content="{Binding PreviewGrid}" />
+                                <!-- ContentPresenter displays the Grid generated in the ViewModel -->
+                                <!-- No ItemsRepeater or explicit layout needed here -->
                             </Border>
-                            <!-- Name and Rotate Button -->
+                            <!-- *************************************************** -->
+                            <!-- Name, Checkbox, and Rotate Button -->
                             <StackPanel Grid.Column="1"
                                         VerticalAlignment="Center"
                                         Spacing="5">
                                 <TextBlock Text="{Binding Name}"
                                            FontWeight="SemiBold" />
+                                <CheckBox Content="Use in Solve"
+                                          IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                          VerticalAlignment="Center" />
                                 <Button Content="Rotate"
                                         Command="{Binding RotateCommand}"
+                                        IsEnabled="{Binding RotateCommand.CanExecute, Mode=OneWay}"
                                         Padding="5,2"
                                         HorizontalAlignment="Left" />
-                                <!-- TODO: Add Edit/Remove Buttons here -->
                             </StackPanel>
                         </Grid>
                     </DataTemplate>
