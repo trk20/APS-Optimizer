@@ -168,6 +168,41 @@ public partial class ShapeViewModel : ViewModelBase, IDisposable
             StopAutoRotation();
         }
     }
+
+    public bool[,] GetBaseRotationGrid()
+    {
+        if (_rotations.Count > 0)
+        {
+            // Assuming the first generated rotation is the "base" one used for editing
+            return _rotations[0];
+        }
+        // Fallback if no rotations generated (shouldn't happen with valid input)
+        return new bool[0, 0];
+    }
+
+    // Add method to update data after editing
+    public void UpdateShapeData(string newName, bool[,] newBaseShape)
+    {
+        Name = newName;
+        // Regenerate rotations based on the new base shape
+        GenerateRotations(newBaseShape);
+        // Reset rotation index and update preview
+        _currentRotationIndex = 0;
+        UpdatePreview();
+        // Restart timer if needed
+        StopAutoRotation();
+        if (IsEnabled) StartAutoRotation();
+    }
+
+    [RelayCommand]
+    private void RequestEdit()
+    {
+        // This command primarily exists to be bound to the UI.
+        // The actual dialog showing logic will be in MainViewModel,
+        // triggered by the UI interaction (e.g., context menu click).
+        Debug.WriteLine($"Edit requested for shape: {Name}");
+    }
+
     // -----------------------------
 
     // --- IDisposable Implementation for Cleanup ---

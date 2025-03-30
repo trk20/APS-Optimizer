@@ -259,6 +259,96 @@ public partial class MainViewModel : ViewModelBase
     // Calculated property for grid width
     public double CalculatedGridTotalWidth => GridWidth <= 0 ? CellWidth : (GridWidth * CellWidth) + ((Math.Max(0, GridWidth - 1)) * CellSpacing);
 
+
+    [RelayCommand]
+    private async Task ShowAddShapeDialog()
+    {
+        var editorViewModel = new ShapeEditorViewModel(); // ViewModel for adding
+        var dialog = new ShapeEditorDialog
+        {
+            DataContext = editorViewModel,
+            // Important: Set XamlRoot for ContentDialog
+            XamlRoot = ((App)Application.Current)?.MainWindow?.Content?.XamlRoot // Or get from active window/control
+        };
+
+        var result = await dialog.ShowAsync();
+
+        if (result == ContentDialogResult.Primary) // "Confirm" clicked
+        {
+            string newName = editorViewModel.ShapeName;
+            bool[,] newPattern = editorViewModel.GetCurrentPattern();
+
+            if (newPattern.Length > 0) // Only add if pattern is not empty
+            {
+                var newShapeViewModel = new ShapeViewModel(newName, newPattern);
+                AvailableShapes.Add(newShapeViewModel);
+                Debug.WriteLine($"Added new shape: {newName}");
+            }
+            else
+            {
+                Debug.WriteLine("Add shape cancelled - empty pattern.");
+                // Optionally show a message to the user
+            }
+        }
+        else // Cancelled or closed
+        {
+            Debug.WriteLine("Add shape cancelled.");
+        }
+    }
+    // -------------------------------
+
+
+    // --- Method to Show Edit Dialog (called from UI interaction) ---
+    public async Task ShowEditShapeDialog(ShapeViewModel shapeToEdit)
+    {
+        if (shapeToEdit == null) return;
+
+        Debug.WriteLine($"Showing edit dialog for: {shapeToEdit.Name}");
+        var editorViewModel = new ShapeEditorViewModel(shapeToEdit); // ViewModel for editing
+        var dialog = new ShapeEditorDialog
+        {
+            DataContext = editorViewModel,
+            XamlRoot = ((App)Application.Current)?.MainWindow?.Content?.XamlRoot // Or get from active window/control
+        };
+
+        var result = await dialog.ShowAsync();
+
+        if (result == ContentDialogResult.Primary) // "Confirm" clicked
+        {
+            string editedName = editorViewModel.ShapeName;
+            bool[,] editedPattern = editorViewModel.GetCurrentPattern();
+
+            if (editedPattern.Length > 0)
+            {
+                shapeToEdit.UpdateShapeData(editedName, editedPattern);
+                Debug.WriteLine($"Updated shape: {editedName}");
+            }
+            else
+            {
+                Debug.WriteLine($"Edit shape cancelled for {editedName} - resulting pattern empty.");
+                // Optionally show message - cannot save an empty shape
+            }
+        }
+        else // Cancelled or closed
+        {
+            Debug.WriteLine($"Edit shape cancelled for {shapeToEdit.Name}.");
+        }
+    }
+
+    [RelayCommand]
+    private async Task ShowEditShapeDialogCommand(ShapeViewModel? shapeToEdit)
+    {
+        // Call the existing method, RelayCommand handles null check if needed, but explicit is fine
+        if (shapeToEdit != null)
+        {
+            await ShowEditShapeDialog(shapeToEdit);
+        }
+        else
+        {
+            Debug.WriteLine("Edit command called with null parameter.");
+        }
+    }
+    // ---------------------------------------------------------
     private bool _disposed = false;
     protected virtual void Dispose(bool disposing)
     {
@@ -284,5 +374,6 @@ public partial class MainViewModel : ViewModelBase
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
+
 
 }

@@ -9,7 +9,7 @@
       mc:Ignorable="d"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
     <Page.DataContext>
-        <viewmodels:MainViewModel />
+        <viewmodels:MainViewModel x:Name="CustomViewModel" />
     </Page.DataContext>
     <Grid Padding="10">
         <Grid.RowDefinitions>
@@ -117,31 +117,38 @@
                 </Border>
             </StackPanel>
         </Grid>
-        <!-- Right Side: Shapes (MODIFIED COLUMN WIDTH) -->
+        <!-- Right Side: Shapes (ADD CONTEXT MENU) -->
         <StackPanel Grid.Row="0"
                     Grid.Column="1"
                     Spacing="10"
-                    MinWidth="250"
-                    Padding="10">
+                    MinWidth="250">
             <TextBlock Text="Shapes:"
                        Style="{ThemeResource SubtitleTextBlockStyle}" />
-            <!-- Give the ListView a Name to reference in Binding -->
             <ListView x:Name="ShapesListView"
                       ItemsSource="{Binding AvailableShapes}"
                       MaxHeight="600"
-                      SelectionMode="None">
+                      SelectionMode="None"
+                      CanReorderItems="False"
+                      AllowDrop="False"
+                      IsItemClickEnabled="False">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="viewmodels:ShapeViewModel">
                         <Grid ColumnSpacing="10"
                               Margin="0,5">
                             <Grid.ColumnDefinitions>
-                                <!-- **** Bind Width using RelativeSource **** -->
                                 <ColumnDefinition Width="{Binding DataContext.MaxPreviewColumnWidth, ElementName=ShapesListView}" />
-                                <!-- ****************************************** -->
                                 <ColumnDefinition Width="*" />
                                 <!-- Controls Col -->
                             </Grid.ColumnDefinitions>
-                            <!-- Shape Preview Area (Keep Centered) -->
+                            <Grid.ContextFlyout>
+                                <MenuFlyout>
+                                    <!-- **** Remove Command, Add Click **** -->
+                                    <MenuFlyoutItem Text="Edit Shape"
+                                                    Click="EditShapeMenuItem_Click" />
+                                    <!-- ********************************* -->
+                                    <!-- TODO: Add Remove Shape option -->
+                                </MenuFlyout>
+                            </Grid.ContextFlyout>
                             <Border Grid.Column="0"
                                     BorderBrush="LightGray"
                                     BorderThickness="1"
@@ -150,21 +157,22 @@
                                     Padding="1">
                                 <ContentControl Content="{Binding PreviewGrid}" />
                             </Border>
-                            <!-- Name, Checkbox (Keep Top Aligned) -->
                             <StackPanel Grid.Column="1"
                                         VerticalAlignment="Top"
-                                        Spacing="0">
+                                        Spacing="5">
                                 <TextBlock Text="{Binding Name}"
                                            FontWeight="SemiBold" />
-                                <CheckBox IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                <CheckBox Content="Use in Solve"
+                                          IsChecked="{Binding IsEnabled, Mode=TwoWay}"
                                           VerticalAlignment="Center" />
                             </StackPanel>
                         </Grid>
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
+            <!-- Button Command remains the same -->
             <Button Content="Add Shape"
-                    Command="{Binding AddShapeCommand}" />
+                    Command="{Binding ShowAddShapeDialogCommand}" />
         </StackPanel>
         <!-- ================================================= -->
         <!-- Bottom: Controls (No Changes) -->

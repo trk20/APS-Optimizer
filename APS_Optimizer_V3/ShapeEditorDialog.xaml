@@ -1,0 +1,82 @@
+<!-- ShapeEditorDialog.xaml -->
+<ContentDialog x:Class="APS_Optimizer_V3.ShapeEditorDialog"
+               xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+               xmlns:local="using:APS_Optimizer_V3"
+               xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+               xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+               xmlns:viewmodels="using:APS_Optimizer_V3.ViewModels"
+               mc:Ignorable="d"
+               Title="Shape Editor"
+               PrimaryButtonText="Confirm"
+               SecondaryButtonText="Cancel"
+               DefaultButton="Primary"
+               MinHeight="400"
+               MinWidth="400">
+    <!-- Set DataContext in code-behind or via Binding if needed elsewhere -->
+    <!-- For simplicity, assume DataContext is set before showing -->
+    <StackPanel Spacing="10">
+        <!-- Name -->
+        <TextBox Header="Shape Name:"
+                 Text="{Binding ShapeName, Mode=TwoWay}" />
+        <!-- Grid Size -->
+        <StackPanel Orientation="Horizontal"
+                    Spacing="10">
+            <NumberBox Header="Width:"
+                       Value="{Binding EditorGridWidth, Mode=TwoWay}"
+                       Minimum="1"
+                       Maximum="20"
+                       SpinButtonPlacementMode="Inline"
+                       SmallChange="1" />
+            <NumberBox Header="Height:"
+                       Value="{Binding EditorGridHeight, Mode=TwoWay}"
+                       Minimum="1"
+                       Maximum="20"
+                       SpinButtonPlacementMode="Inline"
+                       SmallChange="1" />
+        </StackPanel>
+        <!-- Grid Editor -->
+        <TextBlock Text="Click cells to define shape:"
+                   Style="{ThemeResource CaptionTextBlockStyle}" />
+        <Border BorderBrush="Gray"
+                BorderThickness="1"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto"
+                          MaxHeight="400"
+                          MaxWidth="600">
+                <!-- Limit scroll size -->
+                <!-- Bind Width to calculated property -->
+                <ItemsRepeater ItemsSource="{Binding EditorCells}"
+                               Width="{Binding CalculatedEditorGridWidth}">
+                    <ItemsRepeater.Layout>
+                        <!-- Use constants from ViewModel or define here -->
+                        <UniformGridLayout MinItemWidth="20"
+                                           MinItemHeight="20"
+                                           Orientation="Horizontal"
+                                           MinColumnSpacing="1"
+                                           MinRowSpacing="1"
+                                           ItemsJustification="Start"
+                                           ItemsStretch="None" />
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate x:DataType="viewmodels:CellViewModel">
+                            <!-- Use Button for easy click handling -->
+                            <Button Background="{Binding Background}"
+                                    Command="{Binding CellClickedCommand}"
+                                    MinWidth="20"
+                                    MinHeight="20"
+                                    Padding="0"
+                                    Margin="0"
+                                    BorderThickness="0.5"
+                                    BorderBrush="LightGray"
+                                    VerticalAlignment="Stretch"
+                                    HorizontalAlignment="Stretch" />
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+            </ScrollViewer>
+        </Border>
+    </StackPanel>
+</ContentDialog>
