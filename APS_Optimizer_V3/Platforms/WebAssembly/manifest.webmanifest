@@ -1,0 +1,10 @@
+{
+  "background_color": "#ffffff",
+  "description": "APS_Optimizer_V3",
+  "display": "standalone",
+  "name": "APS_Optimizer_V3",
+  "short_name": "APS_Optimizer_V3",
+  "start_url": "/index.html",
+  "theme_color": "#ffffff",
+  "scope": "/"
+}
