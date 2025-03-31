@@ -11,7 +11,7 @@
     <Page.DataContext>
         <viewmodels:MainViewModel x:Name="CustomViewModel" />
     </Page.DataContext>
-    <Grid Padding="10">
+    <Grid Padding="5">
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <!-- Content Area -->
@@ -44,8 +44,7 @@
                         BorderThickness="1"
                         HorizontalAlignment="Left">
                     <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                                  VerticalScrollBarVisibility="Auto"
-                                  MaxHeight="400">
+                                  VerticalScrollBarVisibility="Auto">
                         <ItemsRepeater ItemsSource="{Binding GridEditorCells}"
                                        Width="{Binding CalculatedGridTotalWidth}">
                             <ItemsRepeater.Layout>
@@ -74,6 +73,20 @@
                         </ItemsRepeater>
                     </ScrollViewer>
                 </Border>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Force Symmetry:"
+                               VerticalAlignment="Center"
+                               Margin="0,0,5,0" />
+                    <ComboBox ItemsSource="{Binding SymmetryOptions}"
+                              SelectedItem="{Binding SelectedSymmetry, Mode=TwoWay}"
+                              VerticalAlignment="Center"
+                              MinWidth="180"
+                              Margin="0,0,15,0" />
+                    <Button Content="Solve"
+                            Command="{Binding SolveCommand}"
+                            HorizontalAlignment="Center"
+                            Style="{ThemeResource AccentButtonStyle}" />
+                </StackPanel>
             </StackPanel>
             <!-- Result Grid Area -->
             <StackPanel Grid.Column="1"
@@ -84,8 +97,7 @@
                         BorderThickness="1"
                         HorizontalAlignment="Left">
                     <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                                  VerticalScrollBarVisibility="Auto"
-                                  MaxHeight="400">
+                                  VerticalScrollBarVisibility="Auto">
                         <ItemsRepeater ItemsSource="{Binding ResultGridCells}"
                                        Width="{Binding CalculatedGridTotalWidth}">
                             <ItemsRepeater.Layout>
@@ -115,6 +127,9 @@
                         </ItemsRepeater>
                     </ScrollViewer>
                 </Border>
+                <Button Content="Export Result"
+                        Command="{Binding ExportCommand}"
+                        HorizontalAlignment="Center" />
             </StackPanel>
         </Grid>
         <!-- Right Side: Shapes (ADD CONTEXT MENU) -->
@@ -122,7 +137,8 @@
                     Grid.Column="1"
                     Spacing="10"
                     MinWidth="250">
-            <TextBlock Text="Shapes:"
+            <TextBlock Text="Shapes"
+                       HorizontalAlignment="Center"
                        Style="{ThemeResource SubtitleTextBlockStyle}" />
             <ListView x:Name="ShapesListView"
                       ItemsSource="{Binding AvailableShapes}"
@@ -162,8 +178,7 @@
                                         Spacing="5">
                                 <TextBlock Text="{Binding Name}"
                                            FontWeight="SemiBold" />
-                                <CheckBox Content="Use in Solve"
-                                          IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                <CheckBox IsChecked="{Binding IsEnabled, Mode=TwoWay}"
                                           VerticalAlignment="Center" />
                             </StackPanel>
                         </Grid>
@@ -172,6 +187,7 @@
             </ListView>
             <!-- Button Command remains the same -->
             <Button Content="Add Shape"
+                    HorizontalAlignment="Center"
                     Command="{Binding ShowAddShapeDialogCommand}" />
         </StackPanel>
         <!-- ================================================= -->
@@ -180,29 +196,39 @@
                     Grid.Column="0"
                     Grid.ColumnSpan="2"
                     Orientation="Horizontal"
-                    Spacing="15"
-                    HorizontalAlignment="Right">
+                    Spacing="5"
+                    HorizontalAlignment="Stretch">
+            <!-- Use Spacing="10" or adjust per item -->
+            <!-- **** Add TextBlock, Remove Header from ComboBox **** -->
+            <TextBlock Text="Grid Template:"
+                       VerticalAlignment="Center"
+                       Margin="0,0,5,0" />
+            <!-- Add right margin -->
+            <ComboBox ItemsSource="{Binding TemplateOptions}"
+                      SelectedItem="{Binding SelectedTemplate, Mode=TwoWay}"
+                      VerticalAlignment="Center"
+                      MinWidth="180"
+                      Margin="0,0,15,0" />
             <TextBlock Text="Grid Width:"
                        VerticalAlignment="Center" />
             <NumberBox Value="{Binding GridWidth, Mode=TwoWay}"
                        SpinButtonPlacementMode="Inline"
-                       Minimum="5"
-                       Maximum="31"
+                       Minimum="3"
+                       Maximum="50"
                        SmallChange="2"
                        LargeChange="10"
-                       Width="150" />
+                       Width="120"
+                       Margin="0,0,15,0" />
             <TextBlock Text="Grid Height:"
                        VerticalAlignment="Center" />
             <NumberBox Value="{Binding GridHeight, Mode=TwoWay}"
                        SpinButtonPlacementMode="Inline"
-                       Minimum="5"
-                       Maximum="31"
+                       Minimum="3"
+                       Maximum="50"
                        SmallChange="2"
                        LargeChange="10"
-                       Width="150" />
-            <Button Content="Solve"
-                    Command="{Binding SolveCommand}"
-                    Style="{ThemeResource AccentButtonStyle}" />
+                       Width="120"
+                       Margin="0,0,15,0" />
         </StackPanel>
     </Grid>
 </Page>

@@ -42,7 +42,7 @@ public sealed partial class MainPage : Page
                 {
                     // Call the ViewModel's method to show the dialog
                     // No need for the separate ShowEditShapeDialogCommand anymore
-                    await CustomViewModel.ShowEditShapeDialog(shapeToEdit);
+                    await CustomViewModel.ShowEditShapeDialog(shapeToEdit, XamlRoot);
                 }
                 else
                 {
