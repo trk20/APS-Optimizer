@@ -158,11 +158,10 @@
                             </Grid.ColumnDefinitions>
                             <Grid.ContextFlyout>
                                 <MenuFlyout>
-                                    <!-- **** Remove Command, Add Click **** -->
                                     <MenuFlyoutItem Text="Edit Shape"
                                                     Click="EditShapeMenuItem_Click" />
-                                    <!-- ********************************* -->
-                                    <!-- TODO: Add Remove Shape option -->
+                                    <MenuFlyoutItem Text="Remove Shape"
+                                                    Click="RemoveShapeMenuItem_Click" />
                                 </MenuFlyout>
                             </Grid.ContextFlyout>
                             <Border Grid.Column="0"

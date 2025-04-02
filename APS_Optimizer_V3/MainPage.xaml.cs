@@ -56,4 +56,27 @@ public sealed partial class MainPage : Page
             }
         }
     }
+
+    private async void RemoveShapeMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuFlyoutItem menuItem)
+        {
+            if (menuItem.DataContext is ShapeViewModel shapeToRemove)
+            {
+                var xamlRoot = menuItem.XamlRoot;
+                if (xamlRoot != null)
+                {
+                    await ViewModel.RequestRemoveShape(shapeToRemove, xamlRoot);
+                }
+                else
+                {
+                    Console.WriteLine("Error: Could not get XamlRoot from MenuFlyoutItem for removal.");
+                }
+            }
+            else
+            {
+                Console.WriteLine("Error: DataContext of MenuFlyoutItem is not a ShapeViewModel for removal.");
+            }
+        }
+    }
 }

@@ -6,6 +6,10 @@ using CommunityToolkit.Mvvm.Input;
 using System.Diagnostics;
 using APS_Optimizer_V3.Helpers;
 using Microsoft.UI; // Correct namespace
+using Microsoft.UI.Xaml.Controls; // For Grid
+using Microsoft.UI.Xaml; // For Thickness, GridLength etc.
+using Microsoft.UI.Xaml.Media; // For SolidColorBrush
+using System; // For EventArgs, IDisposable
 
 namespace APS_Optimizer_V3.ViewModels;
 using Point = System.ValueTuple<int, int>;
@@ -17,10 +21,9 @@ public partial class ShapeViewModel : ViewModelBase, IDisposable
     private bool _isEnabled = true;
     private Grid? _previewGrid;
 
-    // --- Timer for auto-rotation ---
-    private DispatcherTimer? _autoRotateTimer;
-    private readonly TimeSpan _rotateInterval = TimeSpan.FromSeconds(1.2); // Adjust interval as needed
-                                                                           // --------------------------------
+    // --- Event for IsEnabled changes ---
+    public event EventHandler? IsEnabledChanged;
+    // -----------------------------------
 
     public Grid? PreviewGrid { get => _previewGrid; private set => SetProperty(ref _previewGrid, value); }
 
@@ -29,17 +32,11 @@ public partial class ShapeViewModel : ViewModelBase, IDisposable
         get => _isEnabled;
         set
         {
+            // Only raise event if value actually changes
             if (SetProperty(ref _isEnabled, value))
             {
-                // Start/Stop timer based on whether the shape is enabled
-                if (_isEnabled)
-                {
-                    StartAutoRotation();
-                }
-                else
-                {
-                    StopAutoRotation();
-                }
+                // Notify MainViewModel that this shape's enabled status changed
+                IsEnabledChanged?.Invoke(this, EventArgs.Empty);
             }
         }
     }
@@ -58,11 +55,7 @@ public partial class ShapeViewModel : ViewModelBase, IDisposable
         Name = name;
         GenerateRotations(baseShape);
         UpdatePreview(); // Initial grid generation
-                         // Start timer only if enabled and has rotations
-        if (IsEnabled)
-        {
-            StartAutoRotation();
-        }
+        // Timer is no longer managed here
     }
 
     // GenerateRotations, RotateMatrix, GetMatrixSignature remain the same...
@@ -81,7 +74,7 @@ public partial class ShapeViewModel : ViewModelBase, IDisposable
         Debug.WriteLine($"Generated {_rotations.Count} unique rotations for {Name}.");
     }
     private string GetMatrixSignature(bool[,] matrix)
-    { /* ... as before ... */
+    { /* ... implementation ... */
         System.Text.StringBuilder sb = new System.Text.StringBuilder();
         sb.Append($"{matrix.GetLength(0)}x{matrix.GetLength(1)}:");
         for (int i = 0; i < matrix.GetLength(0); i++)
@@ -92,7 +85,7 @@ public partial class ShapeViewModel : ViewModelBase, IDisposable
         return sb.ToString();
     }
     private bool[,] RotateMatrix(bool[,] matrix)
-    { /* ... as before ... */
+    { /* ... implementation ... */
         int rows = matrix.GetLength(0); int cols = matrix.GetLength(1);
         bool[,] rotated = new bool[cols, rows];
         for (int i = 0; i < rows; i++) for (int j = 0; j < cols; j++) rotated[j, rows - 1 - i] = matrix[i, j];
@@ -103,11 +96,12 @@ public partial class ShapeViewModel : ViewModelBase, IDisposable
     private void UpdatePreview() // No functional changes needed here
     {
         if (_rotations.Count == 0) { PreviewGrid = null; return; }
-        _currentRotationIndex = _currentRotationIndex % _rotations.Count;
+        _currentRotationIndex = _currentRotationIndex % _rotations.Count; // Ensure index is valid
         bool[,] currentShape = _rotations[_currentRotationIndex];
         PreviewHeight = currentShape.GetLength(0);
         PreviewWidth = currentShape.GetLength(1);
-        OnPropertyChanged(nameof(PreviewWidth)); OnPropertyChanged(nameof(PreviewHeight));
+        // No need to raise property changed manually if SetProperty is used, but keep if direct field access happens
+        // OnPropertyChanged(nameof(PreviewWidth)); OnPropertyChanged(nameof(PreviewHeight));
 
         var newGrid = new Grid();
         for (int r = 0; r < PreviewHeight; r++) newGrid.RowDefinitions.Add(new RowDefinition() { Height = new GridLength(PreviewCellSize) });
@@ -123,51 +117,21 @@ public partial class ShapeViewModel : ViewModelBase, IDisposable
                 newGrid.Children.Add(border);
             }
         }
-        PreviewGrid = newGrid;
-        Debug.WriteLine($"Updated preview grid for {Name} to rotation {_currentRotationIndex} ({PreviewWidth}x{PreviewHeight})");
+        // Use SetProperty for PreviewGrid to ensure UI updates
+        SetProperty(ref _previewGrid, newGrid, nameof(PreviewGrid));
+        // Debug.WriteLine($"Updated preview grid for {Name} to rotation {_currentRotationIndex} ({PreviewWidth}x{PreviewHeight})"); // Less verbose logging
     }
 
-    // --- Timer Management Methods ---
-    private void StartAutoRotation()
+    // --- Method called by MainViewModel's timer ---
+    public void AdvanceRotation()
     {
-        // Only start if rotations > 1 and timer isn't already running
-        if (_rotations.Count <= 1 || _autoRotateTimer != null)
-        {
-            return;
-        }
-
-        Debug.WriteLine($"Starting auto-rotation for {Name}");
-        _autoRotateTimer = new DispatcherTimer();
-        _autoRotateTimer.Interval = _rotateInterval;
-        _autoRotateTimer.Tick += Timer_Tick;
-        _autoRotateTimer.Start();
-    }
-
-    private void StopAutoRotation()
-    {
-        if (_autoRotateTimer != null)
-        {
-            Debug.WriteLine($"Stopping auto-rotation for {Name}");
-            _autoRotateTimer.Stop();
-            _autoRotateTimer.Tick -= Timer_Tick; // Unsubscribe event handler
-            _autoRotateTimer = null;
-        }
-    }
-
-    private void Timer_Tick(object? sender, object e)
-    {
-        // This code runs on the UI thread thanks to DispatcherTimer
         if (_rotations.Count > 1)
         {
             _currentRotationIndex++; // Increment index first
             UpdatePreview(); // Update the visual preview
         }
-        else
-        {
-            // Should not happen if timer started correctly, but stop just in case
-            StopAutoRotation();
-        }
     }
+    // --------------------------------------------
 
     public bool[,] GetBaseRotationGrid()
     {
@@ -189,9 +153,8 @@ public partial class ShapeViewModel : ViewModelBase, IDisposable
         // Reset rotation index and update preview
         _currentRotationIndex = 0;
         UpdatePreview();
-        // Restart timer if needed
-        StopAutoRotation();
-        if (IsEnabled) StartAutoRotation();
+        // Timer is managed by MainViewModel, no action needed here
+        // But MainViewModel needs to re-evaluate timer state after edit
     }
 
     [RelayCommand]
@@ -215,7 +178,8 @@ public partial class ShapeViewModel : ViewModelBase, IDisposable
             if (disposing)
             {
                 // Dispose managed state (managed objects).
-                StopAutoRotation(); // Ensure timer is stopped and resources released
+                // No timer to stop here anymore
+                IsEnabledChanged = null; // Remove event subscribers
             }
 
             // Free unmanaged resources (unmanaged objects) and override finalizer
@@ -235,10 +199,9 @@ public partial class ShapeViewModel : ViewModelBase, IDisposable
         GC.SuppressFinalize(this); // Suppress finalization check by the GC
     }
 
-    // Optional Finalizer (uncomment if you have unmanaged resources)
+    // Optional Finalizer (usually not needed for purely managed resources)
     // ~ShapeViewModel()
     // {
-    //     // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
     //     Dispose(disposing: false);
     // }
     // -------------------------------------------
@@ -246,10 +209,13 @@ public partial class ShapeViewModel : ViewModelBase, IDisposable
 
     // GetCurrentRotationGrid, GetAllRotationGrids remain the same...
     public bool[,] GetCurrentRotationGrid()
-    { /* ... as before ... */
+    { /* ... implementation ... */
         if (_rotations.Count == 0) return new bool[0, 0];
         _currentRotationIndex = _currentRotationIndex % _rotations.Count;
         return _rotations[_currentRotationIndex];
     }
     public List<bool[,]> GetAllRotationGrids() => _rotations;
+
+    // Helper to check if rotation is possible
+    public bool CanRotate() => _rotations.Count > 1;
 }

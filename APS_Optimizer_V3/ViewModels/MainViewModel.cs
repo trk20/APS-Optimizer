@@ -8,15 +8,20 @@ using System;
 using System.Collections.Generic;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI;
-using Windows.UI; // Check if this is needed or if Microsoft.UI.Colors is sufficient
+// using Windows.UI; // Check if this is needed or if Microsoft.UI.Colors is sufficient
 using Microsoft.UI.Xaml.Controls;
 using System.Threading.Tasks;
-using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml; // Needed for DispatcherTimer and XamlRoot
 
 namespace APS_Optimizer_V3.ViewModels;
 
 public partial class MainViewModel : ViewModelBase, IDisposable
 {
+    // --- Shared Rotation Timer ---
+    private DispatcherTimer? _sharedRotationTimer;
+    private readonly TimeSpan _sharedRotateInterval = TimeSpan.FromSeconds(1.2); // Adjust interval as needed
+    // -----------------------------
+
     // --- Template Selection ---
     public List<string> TemplateOptions { get; } = new List<string>
     {
@@ -102,11 +107,17 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     }
 
     public double MaxPreviewColumnWidth
-    { /* ... as before ... */
+    { /* ... implementation ... */
         get
         {
             if (!AvailableShapes.Any()) return PreviewCellSize * 4;
-            int maxDimension = AvailableShapes.SelectMany(s => s.GetAllRotationGrids()).Select(g => Math.Max(g.GetLength(0), g.GetLength(1))).DefaultIfEmpty(4).Max();
+            // Consider only the base rotation for max width calculation maybe? Or keep as is?
+            // Let's keep checking all rotations for now.
+            int maxDimension = AvailableShapes
+                .SelectMany(s => s.GetAllRotationGrids())
+                .Select(g => Math.Max(g.GetLength(0), g.GetLength(1)))
+                .DefaultIfEmpty(4)
+                .Max();
             double width = (maxDimension * PreviewCellSize) + ((Math.Max(0, maxDimension - 1)) * PreviewCellSpacing);
             return width + 2; // Border padding
         }
@@ -123,15 +134,56 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         // InitializeEditorGrid is now replaced by ApplyTemplate in constructor
         ApplyTemplate(SelectedTemplate); // Apply default template on startup
         InitializeResultGrid();
-        InitializeShapes();
+        InitializeShapes(); // This now subscribes events and updates timer state
     }
 
     private void AvailableShapes_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-    { /* ... as before ... */
-        if (e.OldItems != null) foreach (var item in e.OldItems) if (item is IDisposable disposable) disposable.Dispose();
+    {
+        // Unsubscribe and dispose old items
+        if (e.OldItems != null)
+        {
+            foreach (var item in e.OldItems)
+            {
+                if (item is ShapeViewModel shapeVM)
+                {
+                    shapeVM.IsEnabledChanged -= ShapeViewModel_IsEnabledChanged; // Unsubscribe
+                    shapeVM.Dispose(); // Dispose
+                }
+            }
+        }
+
+        // Subscribe to new items
+        if (e.NewItems != null)
+        {
+            foreach (var item in e.NewItems)
+            {
+                if (item is ShapeViewModel shapeVM)
+                {
+                    shapeVM.IsEnabledChanged += ShapeViewModel_IsEnabledChanged; // Subscribe
+                }
+            }
+        }
+
+        // Update max width and timer state regardless of action
         OnPropertyChanged(nameof(MaxPreviewColumnWidth));
-        if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset) Debug.WriteLine("AvailableShapes collection Reset.");
+        UpdateSharedRotationTimerState(); // Check if timer needs starting/stopping
+
+        if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
+        {
+            Debug.WriteLine("AvailableShapes collection Reset.");
+            // If reset, theoretically all event subscriptions are gone, re-subscribe if needed
+            // However, clearing and re-adding is more common than Reset.
+            // If using Reset, ensure cleanup/re-subscription logic is robust.
+        }
     }
+
+    // --- Handler for IsEnabled changes in individual shapes ---
+    private void ShapeViewModel_IsEnabledChanged(object? sender, EventArgs e)
+    {
+        // When a shape is enabled/disabled, the condition for running the timer might change.
+        UpdateSharedRotationTimerState();
+    }
+    // ---------------------------------------------------------
 
     // --- Template Application Logic ---
     private void ApplyTemplate(string templateName)
@@ -163,34 +215,27 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             case "Circle (Center Hole)":
             case "Circle (No Hole)":
                 bool blockCenter = templateName == "Circle (Center Hole)";
-                // Calculate geometric center (can be between cells for even sizes)
                 double centerX = (width - 1.0) / 2.0;
                 double centerY = (height - 1.0) / 2.0;
-                // Radius based on the smaller dimension to fit the circle
                 double radius = Math.Min(width, height) / 2.0;
+                double radiusSq = radius * radius;
 
                 for (int r = 0; r < height; r++)
                 {
                     for (int c = 0; c < width; c++)
                     {
-                        // Calculate distance from cell's center (r+0.5, c+0.5) to grid's geometric center
                         double distSq = Math.Pow((r + 0.5) - (centerY + 0.5), 2) + Math.Pow((c + 0.5) - (centerX + 0.5), 2);
-                        double radiusSq = radius * radius;
 
-                        // Block if outside the radius (or very close to edge)
-                        if (distSq >= radiusSq - 0.01) // Use squared distance, add tolerance
+                        if (distSq >= radiusSq - 0.01) // Block outside radius
                         {
                             pattern[r, c] = true;
                         }
 
-                        // Handle center blocking for odd sizes specifically
+                        // Block center cell only if requested and dimensions are odd
                         if (blockCenter && width % 2 != 0 && height % 2 != 0 && r == (int)centerY && c == (int)centerX)
                         {
                             pattern[r, c] = true;
                         }
-                        // For even sizes, blocking the geometric "center" is tricky.
-                        // Option: Block the 2x2 cells around the geometric center?
-                        // For now, only blocking the single center cell for odd dimensions.
                     }
                 }
                 break;
@@ -215,32 +260,90 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         Debug.WriteLine($"Initialized Result Grid Placeholder: {GridWidth}x{GridHeight}");
     }
     private void InitializeShapes()
-    { /* ... as before ... */
-        AvailableShapes.Clear();
+    {
+        // Clear existing shapes and subscriptions first
+        while (AvailableShapes.Any())
+        {
+            var shape = AvailableShapes.First();
+            shape.IsEnabledChanged -= ShapeViewModel_IsEnabledChanged; // Unsubscribe
+            shape.Dispose();
+            AvailableShapes.RemoveAt(0); // Remove without triggering collection changed for each one
+        }
+        AvailableShapes.Clear(); // Ensure it's clear if loop fails
+
+        // Add default shapes
         bool[,] tShapeBase = { { true, true, true }, { false, true, false } }; bool[,] crossShapeBase = { { false, true, false }, { true, true, true }, { false, true, false } }; bool[,] lShapeBase = { { true, false }, { true, false }, { true, true } }; bool[,] lineShapeBase = { { true, true, true, true } };
-        AvailableShapes.Add(new ShapeViewModel("T-Shape", tShapeBase)); AvailableShapes.Add(new ShapeViewModel("Cross", crossShapeBase)); AvailableShapes.Add(new ShapeViewModel("L-Shape", lShapeBase)); AvailableShapes.Add(new ShapeViewModel("Line-4", lineShapeBase));
+        AvailableShapes.Add(new ShapeViewModel("T-Shape", tShapeBase));
+        AvailableShapes.Add(new ShapeViewModel("Cross", crossShapeBase));
+        AvailableShapes.Add(new ShapeViewModel("L-Shape", lShapeBase));
+        AvailableShapes.Add(new ShapeViewModel("Line-4", lineShapeBase));
+
+        // Subscribe to events for the newly added shapes
+        foreach (var shape in AvailableShapes)
+        {
+            shape.IsEnabledChanged += ShapeViewModel_IsEnabledChanged;
+        }
+
         Debug.WriteLine($"Initialized {AvailableShapes.Count} shapes with rotations.");
         OnPropertyChanged(nameof(MaxPreviewColumnWidth));
+        UpdateSharedRotationTimerState(); // Initial timer check
     }
 
     // Add/Edit Dialog methods, Solve, Dispose... remain the same
     [RelayCommand]
     public async Task ShowAddShapeDialog()
-    { /* ... as before ... */
-        var xamlRoot = ((App)Application.Current)?.MainWindow?.Content?.XamlRoot; if (xamlRoot == null) { Debug.WriteLine("Cannot show AddShapeDialog: Failed to get XamlRoot."); return; }
-        var editorViewModel = new ShapeEditorViewModel(); var dialog = new ShapeEditorDialog { DataContext = editorViewModel, XamlRoot = xamlRoot }; var result = await dialog.ShowAsync();
-        if (result == ContentDialogResult.Primary) { string newName = editorViewModel.ShapeName; bool[,] newPattern = editorViewModel.GetCurrentPattern(); if (newPattern.Length > 0) { var newShapeViewModel = new ShapeViewModel(newName, newPattern); AvailableShapes.Add(newShapeViewModel); Debug.WriteLine($"Added new shape: {newName}"); } else { Debug.WriteLine("Add shape cancelled - empty pattern."); } } else { Debug.WriteLine("Add shape cancelled."); }
+    {
+        var xamlRoot = ((App)Application.Current)?.MainWindow?.Content?.XamlRoot;
+        if (xamlRoot == null) { Debug.WriteLine("Cannot show AddShapeDialog: Failed to get XamlRoot."); return; }
+
+        var editorViewModel = new ShapeEditorViewModel();
+        var dialog = new ShapeEditorDialog { DataContext = editorViewModel, XamlRoot = xamlRoot };
+        var result = await dialog.ShowAsync();
+
+        if (result == ContentDialogResult.Primary)
+        {
+            string newName = editorViewModel.ShapeName;
+            bool[,] newPattern = editorViewModel.GetCurrentPattern();
+            if (newPattern.Length > 0)
+            {
+                var newShapeViewModel = new ShapeViewModel(newName, newPattern);
+                // Subscription happens via CollectionChanged handler
+                AvailableShapes.Add(newShapeViewModel);
+                Debug.WriteLine($"Added new shape: {newName}");
+                // Timer state update also happens via CollectionChanged handler
+            }
+            else { Debug.WriteLine("Add shape cancelled - empty pattern."); }
+        }
+        else { Debug.WriteLine("Add shape cancelled."); }
     }
     public async Task ShowEditShapeDialog(ShapeViewModel shapeToEdit, XamlRoot xamlRoot)
-    { /* ... as before ... */
+    {
         if (shapeToEdit == null) { Debug.WriteLine("ShowEditShapeDialog called with null shapeToEdit."); return; }
         if (xamlRoot == null) { Debug.WriteLine("ShowEditShapeDialog called with null xamlRoot."); return; }
-        Debug.WriteLine($"Showing edit dialog for: {shapeToEdit.Name}"); var editorViewModel = new ShapeEditorViewModel(shapeToEdit); var dialog = new ShapeEditorDialog { DataContext = editorViewModel, XamlRoot = xamlRoot }; var result = await dialog.ShowAsync();
-        if (result == ContentDialogResult.Primary) { string editedName = editorViewModel.ShapeName; bool[,] editedPattern = editorViewModel.GetCurrentPattern(); if (editedPattern.Length > 0) { shapeToEdit.UpdateShapeData(editedName, editedPattern); Debug.WriteLine($"Updated shape: {editedName}"); OnPropertyChanged(nameof(MaxPreviewColumnWidth)); } else { Debug.WriteLine($"Edit shape cancelled for {editedName} - resulting pattern empty."); } } else { Debug.WriteLine($"Edit shape cancelled for {shapeToEdit.Name}."); }
+
+        Debug.WriteLine($"Showing edit dialog for: {shapeToEdit.Name}");
+        var editorViewModel = new ShapeEditorViewModel(shapeToEdit);
+        var dialog = new ShapeEditorDialog { DataContext = editorViewModel, XamlRoot = xamlRoot };
+        var result = await dialog.ShowAsync();
+
+        if (result == ContentDialogResult.Primary)
+        {
+            string editedName = editorViewModel.ShapeName;
+            bool[,] editedPattern = editorViewModel.GetCurrentPattern();
+            if (editedPattern.Length > 0)
+            {
+                shapeToEdit.UpdateShapeData(editedName, editedPattern);
+                Debug.WriteLine($"Updated shape: {editedName}");
+                OnPropertyChanged(nameof(MaxPreviewColumnWidth)); // Max width might change
+                UpdateSharedRotationTimerState(); // Rotation ability might have changed
+            }
+            else { Debug.WriteLine($"Edit shape cancelled for {editedName} - resulting pattern empty."); }
+        }
+        else { Debug.WriteLine($"Edit shape cancelled for {shapeToEdit.Name}."); }
     }
     [RelayCommand]
     public async Task Solve()
-    { /* ... as before ... */
+    { /* ... implementation ... */
         Debug.WriteLine("Solve button clicked."); List<(int r, int c)> blockedCells = GridEditorCells.Where(cell => cell.State == CellState.Blocked).Select(cell => (cell.Row, cell.Col)).ToList(); List<ShapeViewModel> shapesToUse = AvailableShapes.Where(s => s.IsEnabled).ToList(); if (!shapesToUse.Any()) { Debug.WriteLine("No shapes enabled/available to solve."); return; }
         Debug.WriteLine($"Solving with {shapesToUse.Count} enabled shapes:"); shapesToUse.ForEach(shape => Debug.WriteLine($"- {shape.Name}"));
         var allPossiblePlacements = new Dictionary<int, (string Name, int RotationIndex, bool[,] Grid)>(); int placementIdCounter = 0; foreach (var shapeVM in shapesToUse) { var rotations = shapeVM.GetAllRotationGrids(); for (int rotIdx = 0; rotIdx < rotations.Count; rotIdx++) { var grid = rotations[rotIdx]; Debug.WriteLine($"Considering {shapeVM.Name}, Rotation {rotIdx} ({grid.GetLength(0)}x{grid.GetLength(1)})"); allPossiblePlacements.Add(placementIdCounter++, (shapeVM.Name, rotIdx, grid)); } }
@@ -250,11 +353,129 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         Debug.WriteLine("Placeholder: Simulated updating result grid display.");
     }
 
+    public async Task RequestRemoveShape(ShapeViewModel shapeToRemove, XamlRoot xamlRoot)
+    {
+        if (shapeToRemove == null || xamlRoot == null)
+        {
+            Debug.WriteLine($"Error: RequestRemoveShape called with null arguments.");
+            return;
+        }
+
+        var confirmDialog = new ContentDialog
+        {
+            Title = "Confirm Removal",
+            Content = $"Are you sure you want to remove the shape '{shapeToRemove.Name}'?",
+            PrimaryButtonText = "Remove",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = xamlRoot
+        };
+
+        var result = await confirmDialog.ShowAsync();
+
+        if (result == ContentDialogResult.Primary)
+        {
+            // Removal from collection triggers CollectionChanged handler,
+            // which handles unsubscription and timer update.
+            AvailableShapes.Remove(shapeToRemove);
+            Debug.WriteLine($"Removed shape: {shapeToRemove.Name}");
+        }
+        else { Debug.WriteLine($"Removal cancelled for shape: {shapeToRemove.Name}"); }
+    }
+
     [RelayCommand]
     public async Task Export()
     {
+        // Placeholder for export logic
+        await Task.CompletedTask; // Example async signature
+        Debug.WriteLine("Export command executed (placeholder).");
     }
-    private bool _disposed = false; protected virtual void Dispose(bool disposing) { if (!_disposed) { if (disposing) { Debug.WriteLine("Disposing MainViewModel"); AvailableShapes.CollectionChanged -= AvailableShapes_CollectionChanged; foreach (var shape in AvailableShapes) shape.Dispose(); AvailableShapes.Clear(); } _disposed = true; } }
+
+    // --- Shared Timer Logic ---
+    private void UpdateSharedRotationTimerState()
+    {
+        // Condition: Are there any shapes that are enabled AND can rotate?
+        bool shouldTimerRun = AvailableShapes.Any(s => s.IsEnabled && s.CanRotate());
+
+        if (shouldTimerRun)
+        {
+            // If timer should run but isn't created or running, start it.
+            if (_sharedRotationTimer == null)
+            {
+                Debug.WriteLine("Starting shared rotation timer.");
+                _sharedRotationTimer = new DispatcherTimer();
+                _sharedRotationTimer.Interval = _sharedRotateInterval;
+                _sharedRotationTimer.Tick += SharedRotationTimer_Tick;
+                _sharedRotationTimer.Start();
+            }
+            // Optional: If timer exists but was stopped, restart it.
+            // else if (!_sharedRotationTimer.IsEnabled)
+            // {
+            //     Debug.WriteLine("Restarting shared rotation timer.");
+            //     _sharedRotationTimer.Start();
+            // }
+        }
+        else
+        {
+            // If timer shouldn't run but is running, stop it.
+            if (_sharedRotationTimer != null) // Check if it exists before trying to stop
+            {
+                Debug.WriteLine("Stopping shared rotation timer.");
+                _sharedRotationTimer.Stop();
+                _sharedRotationTimer.Tick -= SharedRotationTimer_Tick; // Unsubscribe
+                _sharedRotationTimer = null; // Release the timer object
+            }
+        }
+    }
+
+    private void SharedRotationTimer_Tick(object? sender, object e)
+    {
+        // This runs on the UI thread
+        // Tell all enabled shapes that can rotate to advance
+        foreach (var shape in AvailableShapes)
+        {
+            if (shape.IsEnabled && shape.CanRotate())
+            {
+                shape.AdvanceRotation();
+            }
+        }
+    }
+    // -------------------------
+
+
+    private bool _disposed = false;
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposed)
+        {
+            if (disposing)
+            {
+                Debug.WriteLine("Disposing MainViewModel");
+
+                // Stop and clean up the shared timer
+                if (_sharedRotationTimer != null)
+                {
+                    _sharedRotationTimer.Stop();
+                    _sharedRotationTimer.Tick -= SharedRotationTimer_Tick;
+                    _sharedRotationTimer = null;
+                }
+
+                // Unsubscribe from collection changed
+                AvailableShapes.CollectionChanged -= AvailableShapes_CollectionChanged;
+
+                // Unsubscribe from individual shape events and dispose them
+                foreach (var shape in AvailableShapes)
+                {
+                    shape.IsEnabledChanged -= ShapeViewModel_IsEnabledChanged;
+                    shape.Dispose();
+                }
+                AvailableShapes.Clear();
+                GridEditorCells.Clear();
+                ResultGridCells.Clear();
+            }
+            _disposed = true;
+        }
+    }
     public void Dispose() { Dispose(disposing: true); GC.SuppressFinalize(this); }
 
 }
