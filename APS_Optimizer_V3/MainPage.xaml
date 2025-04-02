@@ -37,12 +37,14 @@
             </Grid.ColumnDefinitions>
             <!-- Editor Grid Area -->
             <StackPanel Grid.Column="0"
+                        HorizontalAlignment="Center"
                         Spacing="5">
-                <TextBlock Text="Grid Editor:"
-                           Style="{ThemeResource SubtitleTextBlockStyle}" />
+                <TextBlock Text="Grid Editor"
+                           Style="{ThemeResource SubtitleTextBlockStyle}"
+                           HorizontalAlignment="Center" />
                 <Border BorderBrush="Gray"
                         BorderThickness="1"
-                        HorizontalAlignment="Left">
+                        HorizontalAlignment="Center">
                     <ScrollViewer HorizontalScrollBarVisibility="Auto"
                                   VerticalScrollBarVisibility="Auto">
                         <ItemsRepeater ItemsSource="{Binding GridEditorCells}"
@@ -90,12 +92,14 @@
             </StackPanel>
             <!-- Result Grid Area -->
             <StackPanel Grid.Column="1"
+                        HorizontalAlignment="Center"
                         Spacing="5">
-                <TextBlock Text="Result:"
-                           Style="{ThemeResource SubtitleTextBlockStyle}" />
+                <TextBlock Text="Result"
+                           Style="{ThemeResource SubtitleTextBlockStyle}"
+                           HorizontalAlignment="Center" />
                 <Border BorderBrush="Gray"
                         BorderThickness="1"
-                        HorizontalAlignment="Left">
+                        HorizontalAlignment="Center">
                     <ScrollViewer HorizontalScrollBarVisibility="Auto"
                                   VerticalScrollBarVisibility="Auto">
                         <ItemsRepeater ItemsSource="{Binding ResultGridCells}"

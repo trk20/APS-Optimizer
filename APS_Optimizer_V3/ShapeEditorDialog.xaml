@@ -40,8 +40,8 @@
                 BorderThickness="1"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Top">
-            <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                          VerticalScrollBarVisibility="Auto"
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Disabled"
                           MaxHeight="400"
                           MaxWidth="600">
                 <!-- **** Add MaxWidth Binding **** -->

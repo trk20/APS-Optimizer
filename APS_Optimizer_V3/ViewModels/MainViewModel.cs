@@ -11,7 +11,8 @@ using Microsoft.UI;
 // using Windows.UI; // Check if this is needed or if Microsoft.UI.Colors is sufficient
 using Microsoft.UI.Xaml.Controls;
 using System.Threading.Tasks;
-using Microsoft.UI.Xaml; // Needed for DispatcherTimer and XamlRoot
+using Microsoft.UI.Xaml;
+using APS_Optimizer_V3.Services; // Needed for DispatcherTimer and XamlRoot
 
 namespace APS_Optimizer_V3.ViewModels;
 
@@ -20,6 +21,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     // --- Shared Rotation Timer ---
     private DispatcherTimer? _sharedRotationTimer;
     private readonly TimeSpan _sharedRotateInterval = TimeSpan.FromSeconds(1.2); // Adjust interval as needed
+    private readonly SolverService _solverService; // Add solver service instance
     // -----------------------------
 
     // --- Template Selection ---
@@ -130,6 +132,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public MainViewModel()
     {
+        _solverService = new SolverService();
+
         AvailableShapes.CollectionChanged += AvailableShapes_CollectionChanged;
         // InitializeEditorGrid is now replaced by ApplyTemplate in constructor
         ApplyTemplate(SelectedTemplate); // Apply default template on startup
@@ -343,15 +347,133 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     }
     [RelayCommand]
     public async Task Solve()
-    { /* ... implementation ... */
-        Debug.WriteLine("Solve button clicked."); List<(int r, int c)> blockedCells = GridEditorCells.Where(cell => cell.State == CellState.Blocked).Select(cell => (cell.Row, cell.Col)).ToList(); List<ShapeViewModel> shapesToUse = AvailableShapes.Where(s => s.IsEnabled).ToList(); if (!shapesToUse.Any()) { Debug.WriteLine("No shapes enabled/available to solve."); return; }
-        Debug.WriteLine($"Solving with {shapesToUse.Count} enabled shapes:"); shapesToUse.ForEach(shape => Debug.WriteLine($"- {shape.Name}"));
-        var allPossiblePlacements = new Dictionary<int, (string Name, int RotationIndex, bool[,] Grid)>(); int placementIdCounter = 0; foreach (var shapeVM in shapesToUse) { var rotations = shapeVM.GetAllRotationGrids(); for (int rotIdx = 0; rotIdx < rotations.Count; rotIdx++) { var grid = rotations[rotIdx]; Debug.WriteLine($"Considering {shapeVM.Name}, Rotation {rotIdx} ({grid.GetLength(0)}x{grid.GetLength(1)})"); allPossiblePlacements.Add(placementIdCounter++, (shapeVM.Name, rotIdx, grid)); } }
-        Debug.WriteLine($"Total unique rotations considered (pre-placement): {allPossiblePlacements.Count}");
-        await System.Threading.Tasks.Task.Delay(100); Random rand = new Random(); if (ResultGridCells.Count != GridEditorCells.Count) InitializeResultGrid(); foreach (var cell in ResultGridCells) { cell.State = CellState.Empty; cell.DisplayNumber = null; cell.UpdateColor(); }
-        int cellsToColor = Math.Min(15, ResultGridCells.Count); var indices = Enumerable.Range(0, ResultGridCells.Count).OrderBy(x => rand.Next()).Take(cellsToColor).ToList(); int currentNumber = 1; var colorPalette = new List<Windows.UI.Color> { Colors.LightBlue, Colors.LightGreen, Colors.LightCoral, Colors.LightGoldenrodYellow, Colors.Plum, Colors.Orange, Colors.MediumPurple, Colors.Aquamarine, Colors.Bisque }; foreach (int index in indices) { var cell = ResultGridCells[index]; cell.State = CellState.Placed; cell.DisplayNumber = currentNumber; cell.Background = new SolidColorBrush(colorPalette[(currentNumber - 1) % colorPalette.Count]); currentNumber++; }
-        Debug.WriteLine("Placeholder: Simulated updating result grid display.");
+    {
+        Debug.WriteLine("Solve command initiated.");
+        Debug.WriteLine($"Current Folder: {Environment.CurrentDirectory}");
+        // 0. Clear previous results visually
+        foreach (var cell in ResultGridCells)
+        {
+            // Reset based on initial blocked state from editor
+            var editorCell = GridEditorCells.FirstOrDefault(ec => ec.Row == cell.Row && ec.Col == cell.Col);
+            cell.State = editorCell?.State == CellState.Blocked ? CellState.Blocked : CellState.Empty;
+            cell.DisplayNumber = null;
+            cell.UpdateColor(); // Reset color
+        }
+
+        // 1. Gather Parameters
+        var blockedCells = GridEditorCells
+            .Where(cell => cell.State == CellState.Blocked)
+            .Select(cell => (cell.Row, cell.Col))
+            .ToImmutableList();
+
+        var enabledShapes = AvailableShapes
+            .Where(s => s.IsEnabled)
+            .ToImmutableList(); // Pass immutable list
+
+        if (!enabledShapes.Any())
+        {
+            Debug.WriteLine("Solve cancelled: No shapes are enabled.");
+            // TODO: Show message to user
+            return;
+        }
+
+        var parameters = new SolveParameters(
+            GridWidth,
+            GridHeight,
+            blockedCells,
+            enabledShapes,
+            SelectedSymmetry // Pass the selected symmetry string
+        );
+
+        // 2. Run Solver (using the service)
+        // Consider adding busy indicator UI
+        Debug.WriteLine("Calling SolverService.SolveAsync...");
+        SolverResult result = await _solverService.SolveAsync(parameters);
+        Debug.WriteLine($"Solver finished. Success: {result.Success}, Message: {result.Message}");
+
+        // 3. Process Result
+        if (result.Success && result.SolutionPlacements != null)
+        {
+            Debug.WriteLine($"Solution found with {result.SolutionPlacements.Count} placements, requiring >= {result.RequiredCells} cells.");
+            DisplaySolution(result.SolutionPlacements);
+        }
+        else
+        {
+            Debug.WriteLine("Solver did not find a solution or encountered an error.");
+            // TODO: Display error message from result.Message to the user
+            // Optionally clear the result grid again or leave it empty
+            foreach (var cell in ResultGridCells.Where(c => c.State == CellState.Placed))
+            {
+                cell.State = CellState.Empty; // Clear any previous 'Placed' state if solve fails
+                cell.UpdateColor();
+            }
+        }
+        // Hide busy indicator UI
     }
+
+    private void DisplaySolution(ImmutableList<Placement> solutionPlacements)
+    {
+        // Assign unique numbers and colors to each placed shape instance
+        var colorPalette = new List<Windows.UI.Color> {
+            Colors.LightBlue, Colors.LightGreen, Colors.LightCoral, Colors.LightGoldenrodYellow,
+            Colors.Plum, Colors.Orange, Colors.MediumPurple, Colors.Aquamarine, Colors.Bisque,
+            Colors.Tomato, Colors.SpringGreen, Colors.Orchid, Colors.Gold, Colors.Turquoise
+            // Add more colors if needed
+        };
+        var random = new Random();
+
+        // Shuffle palette for variety if desired
+        // colorPalette = colorPalette.OrderBy(c => random.Next()).ToList();
+
+        int placementNumber = 1;
+        var shapeInstanceColors = new Dictionary<int, Brush>(); // Map PlacementId to Color Brush
+
+        // First pass: Assign colors/numbers
+        foreach (var placement in solutionPlacements)
+        {
+            if (!shapeInstanceColors.ContainsKey(placement.PlacementId))
+            {
+                var color = colorPalette[(placementNumber - 1) % colorPalette.Count];
+                shapeInstanceColors[placement.PlacementId] = new SolidColorBrush(color);
+                placementNumber++;
+            }
+        }
+        int totalPlacements = placementNumber - 1; // Correct count
+
+
+        // Second pass: Update the ResultGridCells
+        placementNumber = 1; // Reset for display numbering
+        var placementNumbers = new Dictionary<int, int>(); // Map PlacementId to Display Number
+        foreach (var placement in solutionPlacements)
+        {
+            if (!placementNumbers.ContainsKey(placement.PlacementId))
+            {
+                placementNumbers[placement.PlacementId] = placementNumber++;
+            }
+
+            var brush = shapeInstanceColors[placement.PlacementId];
+            var displayNum = placementNumbers[placement.PlacementId];
+
+            foreach (var (r, c) in placement.CoveredCells)
+            {
+                // Find the corresponding cell in the ResultGridCells collection
+                var cellViewModel = ResultGridCells.FirstOrDefault(cell => cell.Row == r && cell.Col == c);
+                if (cellViewModel != null)
+                {
+                    cellViewModel.State = CellState.Placed;
+                    cellViewModel.Background = brush;
+                    cellViewModel.DisplayNumber = displayNum; // Assign the unique number
+                                                              // No need to call UpdateColor here as we are setting Background directly
+                }
+                else
+                {
+                    Debug.WriteLine($"Warning: Could not find ResultGridCell at ({r},{c}) to display placement.");
+                }
+            }
+        }
+        Debug.WriteLine($"Displayed {totalPlacements} placements on the result grid.");
+    }
+
 
     public async Task RequestRemoveShape(ShapeViewModel shapeToRemove, XamlRoot xamlRoot)
     {
