@@ -6,10 +6,13 @@
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
       xmlns:viewmodels="using:APS_Optimizer_V3.ViewModels"
+      xmlns:converters="using:APS_Optimizer_V3.Converters"
       mc:Ignorable="d"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
     <Page.DataContext>
         <viewmodels:MainViewModel x:Name="CustomViewModel" />
+        <converters:BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolConverter" />
     </Page.DataContext>
     <Grid Padding="5">
         <Grid.RowDefinitions>
@@ -89,12 +92,24 @@
                             HorizontalAlignment="Center"
                             Style="{ThemeResource AccentButtonStyle}" />
                 </StackPanel>
+                <StackPanel Orientation="Horizontal"
+                            Spacing="5"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Center"
+                            Visibility="{Binding IsSolving, Converter={StaticResource BoolToVis}}">
+                    <ProgressRing IsActive="{Binding IsSolving}"
+                                  Width="20"
+                                  Height="20" />
+                    <TextBlock Text="{Binding CurrentSolveTime}"
+                               VerticalAlignment="Center"
+                               FontSize="14" />
+                </StackPanel>
             </StackPanel>
             <!-- Result Grid Area -->
             <StackPanel Grid.Column="1"
                         HorizontalAlignment="Center"
                         Spacing="5">
-                <TextBlock Text="Result"
+                <TextBlock Text="{Binding ResultTitle}"
                            Style="{ThemeResource SubtitleTextBlockStyle}"
                            HorizontalAlignment="Center" />
                 <Border BorderBrush="Gray"

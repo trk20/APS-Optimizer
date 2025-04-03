@@ -194,7 +194,6 @@ public class SolverService
 
     private (List<Placement>, Dictionary<int, int>) GeneratePlacements(SolveParameters parameters)
     {
-        // ... (Implementation remains the same as previous version) ...
         var placements = new List<Placement>();
         var placementVarMap = new Dictionary<int, int>(); // Maps PlacementID -> CNF Var ID (assigned later)
         int placementIdCounter = 0;
