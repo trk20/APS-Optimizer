@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Text; // Keep for potential debugging output if needed
-using System.Linq;
-
 namespace APS_Optimizer_V3.Services;
 
 public static class SequentialCounter

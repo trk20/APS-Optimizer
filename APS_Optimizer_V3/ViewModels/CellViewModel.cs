@@ -1,10 +1,7 @@
 // ViewModels/CellViewModel.cs
-using CommunityToolkit.Mvvm.Input;
-using Microsoft.UI.Xaml.Media;
 using Microsoft.UI;
 using System.Diagnostics;
 using APS_Optimizer_V3.Helpers; // Correct namespace
-using System;
 
 namespace APS_Optimizer_V3.ViewModels;
 // Add ShapePreview state

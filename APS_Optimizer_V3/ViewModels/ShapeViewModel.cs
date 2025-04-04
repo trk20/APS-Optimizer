@@ -1,18 +1,9 @@
 // ViewModels/ShapeViewModel.cs
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-using CommunityToolkit.Mvvm.Input;
 using System.Diagnostics;
 using APS_Optimizer_V3.Helpers;
 using Microsoft.UI; // Correct namespace
-using Microsoft.UI.Xaml.Controls; // For Grid
-using Microsoft.UI.Xaml; // For Thickness, GridLength etc.
-using Microsoft.UI.Xaml.Media; // For SolidColorBrush
-using System; // For EventArgs, IDisposable
 
 namespace APS_Optimizer_V3.ViewModels;
-using Point = System.ValueTuple<int, int>;
 public partial class ShapeViewModel : ViewModelBase, IDisposable
 {
     private string _name = "Unnamed Shape";

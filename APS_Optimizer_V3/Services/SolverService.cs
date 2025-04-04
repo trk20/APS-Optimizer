@@ -1,11 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using APS_Optimizer_V3.ViewModels;
 
 namespace APS_Optimizer_V3.Services;
@@ -19,11 +13,13 @@ public class SolverService
         var stopwatch = Stopwatch.StartNew();
         Debug.WriteLine($"Solver started. Grid: {parameters.GridWidth}x{parameters.GridHeight}, Shapes: {parameters.EnabledShapes.Count}, Symmetry: {parameters.SelectedSymmetry}");
 
+        var iterationLogs = new List<SolverIterationLog>();
+
         // 1. Generate all possible valid placements (raw)
         var (allPlacements, _) = GeneratePlacements(parameters); // Don't need placementVarMap from here anymore
         if (!allPlacements.Any())
         {
-            return new SolverResult(false, "No valid placements possible for any shape.", 0, null);
+            return new SolverResult(false, "No valid placements possible for any shape.", 0, null, null);
         }
         Debug.WriteLine($"Generated {allPlacements.Count} raw placements.");
 
@@ -35,12 +31,10 @@ public class SolverService
             varManager,
             out var variableToObjectMap // Gets populated by ApplySymmetryAndGroup
         );
-        // 'solveElements' now contains ISolveElement objects (Placement or SymmetryGroup)
-        // 'variableToObjectMap' maps the assigned VariableId to the corresponding ISolveElement
 
         if (!solveElements.Any()) // Should not happen if allPlacements was not empty, but check anyway
         {
-            return new SolverResult(false, "Grouping resulted in zero elements.", 0, null);
+            return new SolverResult(false, "Grouping resulted in zero elements.", 0, null, null);
         }
 
 
@@ -66,14 +60,15 @@ public class SolverService
         // 5. Iterative Solving Loop (using GCD)
         // ... (Calculate GCD, set initial requiredCells - NO CHANGES here) ...
         var shapeAreas = parameters.EnabledShapes.Select(s => s.GetBaseRotationGrid().Cast<bool>().Count(c => c)).Where(area => area > 0).ToList();
-        if (!shapeAreas.Any()) { /* handle error */ return new SolverResult(false, "...", 0, null); }
+        if (!shapeAreas.Any()) { /* handle error */ return new SolverResult(false, "...", 0, null, null); }
         int decrementStep = CalculateListGcd(shapeAreas);
         int totalAvailableCells = parameters.GridWidth * parameters.GridHeight - parameters.BlockedCells.Count;
-        int requiredCells = (totalAvailableCells / decrementStep) * decrementStep;
-
+        int requiredCells = totalAvailableCells / decrementStep * decrementStep;
+        int iterationCounter = 0;
 
         while (requiredCells >= 0)
         {
+            iterationCounter++;
             Debug.WriteLine($"Attempting to solve for at least {requiredCells} covered cells.");
             var currentClauses = new List<List<int>>(baseClauses);
             var currentVarManager = new VariableManager();
@@ -132,8 +127,18 @@ public class SolverService
             int totalVars = currentVarManager.GetMaxVariableId();
             string finalCnfString = FormatDimacs(currentClauses, totalVars);
             // File.WriteAllText($"debug_solver_input_{requiredCells}.cnf", finalCnfString);
-
-            var (sat, solutionVars) = await RunSatSolver(finalCnfString);
+            var iterationStopwatch = Stopwatch.StartNew();
+            var (sat, solutionVars) = await RunSatSolver(finalCnfString, "--threads 1");
+            iterationStopwatch.Stop();
+            var logEntry = new SolverIterationLog(
+                IterationNumber: iterationCounter,
+                RequiredCells: requiredCells,
+                Variables: totalVars,
+                Clauses: currentClauses.Count,
+                Duration: iterationStopwatch.Elapsed,
+                IsSatisfiable: sat
+            );
+            iterationLogs.Add(logEntry);
 
             // 8. Process Result
             if (sat && solutionVars != null)
@@ -143,7 +148,7 @@ public class SolverService
 
                 // *** UPDATE MAPPING TO USE ISolveElement ***
                 var solutionPlacements = MapResult(solutionVars, variableToObjectMap);
-                return new SolverResult(true, $"Solution found covering at least {requiredCells} cells.", requiredCells, solutionPlacements);
+                return new SolverResult(true, $"Solution found covering at least {requiredCells} cells.", requiredCells, solutionPlacements, iterationLogs.ToImmutableList());
             }
             else
             {
@@ -157,7 +162,7 @@ public class SolverService
 
         // ... (No solution found handling) ...
         stopwatch.Stop();
-        return new SolverResult(false, "No solution found for any possible coverage.", 0, null);
+        return new SolverResult(false, "No solution found for any possible coverage.", 0, null, null);
     }
 
 
@@ -315,7 +320,7 @@ public class SolverService
     }
 
 
-    private async Task<(bool IsSat, List<int>? SolutionVariables)> RunSatSolver(string cnfContent)
+    private async Task<(bool IsSat, List<int>? SolutionVariables)> RunSatSolver(string cnfContent, string? solverArgs = null)
     {
         if (!File.Exists(CryptoMiniSatPath))
         {
@@ -326,6 +331,7 @@ public class SolverService
         var processInfo = new ProcessStartInfo
         {
             FileName = CryptoMiniSatPath,
+            Arguments = string.IsNullOrWhiteSpace(solverArgs) ? string.Empty : solverArgs,
             UseShellExecute = false,
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
@@ -350,6 +356,14 @@ public class SolverService
             await process.WaitForExitAsync();
             string output = await outputTask;
             string errorOutput = await errorTask;
+
+            bool logFullOutput = solverArgs?.Contains("-v") ?? false;
+            if (logFullOutput)
+            {
+                Debug.WriteLine($"--- CryptoMiniSat Standard Output ---");
+                Debug.WriteLine(output.Split("s SATISFIABLE")[0]); // Log the full output
+                Debug.WriteLine($"-------------------------------------");
+            }
 
             if (!string.IsNullOrWhiteSpace(errorOutput))
             {
@@ -743,24 +757,24 @@ public class SolverService
     /// <summary>
     /// Helper to get the basic symmetry operations required based on the user selection string.
     /// </summary>
-    private List<SymmetryType> GetSymmetryTransforms(string selectedSymmetry)
+    private List<SymmetryType> GetSymmetryTransforms(SelectedSymmetryType selectedSymmetry)
     {
         // Returns the set of *generators* for the symmetry group.
         // Applying these generators repeatedly explores the whole group.
         switch (selectedSymmetry)
         {
-            case "Rotational (180°)":
+            case SelectedSymmetryType.Rotational180:
                 return new List<SymmetryType> { SymmetryType.Rotate180 };
-            case "Rotational (90°)":
+            case SelectedSymmetryType.Rotational90:
                 // Rotating by 90 degrees generates 180 and 270 as well.
                 return new List<SymmetryType> { SymmetryType.Rotate90 };
-            case "Horizontal":
+            case SelectedSymmetryType.Horizontal:
                 return new List<SymmetryType> { SymmetryType.ReflectHorizontal };
-            case "Vertical":
+            case SelectedSymmetryType.Vertical:
                 return new List<SymmetryType> { SymmetryType.ReflectVertical };
-            case "Quadrants":
+            case SelectedSymmetryType.Quadrants:
                 return new List<SymmetryType> { SymmetryType.ReflectHorizontal, SymmetryType.ReflectVertical };
-            case "None":
+            case SelectedSymmetryType.None:
             default:
                 return new List<SymmetryType> { SymmetryType.None };
         }

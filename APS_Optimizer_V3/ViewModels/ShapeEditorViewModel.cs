@@ -1,10 +1,7 @@
 // ViewModels/ShapeEditorViewModel.cs
 using System.Collections.ObjectModel;
-using System.Linq;
-using CommunityToolkit.Mvvm.Input;
 using APS_Optimizer_V3.Helpers;
 using System.Diagnostics;
-using System;
 
 namespace APS_Optimizer_V3.ViewModels;
 public partial class ShapeEditorViewModel : ViewModelBase

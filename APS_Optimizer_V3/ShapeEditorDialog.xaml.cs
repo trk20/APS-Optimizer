@@ -1,6 +1,5 @@
 // ShapeEditorDialog.xaml.cs
 using APS_Optimizer_V3.ViewModels; // Needed for ViewModel type
-using Microsoft.UI.Xaml.Controls;
 
 namespace APS_Optimizer_V3;
 public sealed partial class ShapeEditorDialog : ContentDialog

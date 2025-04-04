@@ -1,25 +1,21 @@
 // ViewModels/MainViewModel.cs
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Linq;
-using CommunityToolkit.Mvvm.Input;
 using APS_Optimizer_V3.Helpers;
-using System;
-using System.Collections.Generic;
-using Microsoft.UI.Xaml.Media;
 using Microsoft.UI;
-// using Windows.UI; // Check if this is needed or if Microsoft.UI.Colors is sufficient
-using Microsoft.UI.Xaml.Controls;
-using System.Threading.Tasks;
-using Microsoft.UI.Xaml;
 using APS_Optimizer_V3.Services; // Needed for DispatcherTimer and XamlRoot
-using CommunityToolkit.Mvvm.ComponentModel;
+using System.Text;
+using WinRT.Interop;
+using Windows.Storage.Pickers;
 namespace APS_Optimizer_V3.ViewModels;
 
 public partial class MainViewModel : ViewModelBase, IDisposable
 {
     // --- Services ---
     private readonly SolverService _solverService;
+
+    // Store the logs from the last solve operation
+    private ImmutableList<SolverIterationLog>? _lastSolverLogs;
 
     // --- UI State & Timing ---
     private bool _isSolving = false;
@@ -53,6 +49,16 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     // --- Configuration Properties ---
     public List<string> TemplateOptions { get; } = new List<string> { /* Options */ "Circle (Center Hole)", "Circle (No Hole)", "None" };
     public List<string> SymmetryOptions { get; } = new List<string> { /* Options */ "None", "Rotational (90°)", "Rotational (180°)", "Horizontal", "Vertical", "Quadrants" };
+    public SelectedSymmetryType SelectedSymmetryType => SelectedSymmetry switch
+    {
+        "None" => SelectedSymmetryType.None,
+        "Rotational (90°)" => SelectedSymmetryType.Rotational90,
+        "Rotational (180°)" => SelectedSymmetryType.Rotational180,
+        "Horizontal" => SelectedSymmetryType.Horizontal,
+        "Vertical" => SelectedSymmetryType.Vertical,
+        "Quadrants" => SelectedSymmetryType.Quadrants,
+        _ => SelectedSymmetryType.None
+    };
 
     private string _selectedTemplate = "Circle (Center Hole)";
     public string SelectedTemplate
@@ -89,7 +95,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     }
 
     private int _gridWidth = 21;
-    // REMOVE [NotifyPropertyChangedFor] attribute
     public int GridWidth
     {
         get => _gridWidth;
@@ -105,7 +110,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
-
     private int _gridHeight = 21;
     public int GridHeight
     {
@@ -114,6 +118,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         {
             if (SetProperty(ref _gridHeight, value))
             {
+                OnPropertyChanged(nameof(CalculatedGridTotalHeight));
                 OnGridHeightChanged(value);
             }
         }
@@ -125,8 +130,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public const double PreviewCellSize = 10.0;
     public const double PreviewCellSpacing = 1.0;
 
+
     // Notify manually for calculated properties dependent on others
-    public double CalculatedGridTotalWidth => GridWidth <= 0 ? CellWidth : (GridWidth * CellWidth) + ((Math.Max(0, GridWidth - 1)) * CellSpacing);
+    public double CalculatedGridTotalWidth => GridWidth <= 0 ? CellWidth : (GridWidth * CellWidth) + ((Math.Max(0, GridWidth + 1)) * CellSpacing);
+    public double CalculatedGridTotalHeight => GridHeight <= 0 ? CellWidth : (GridHeight * CellWidth) + ((Math.Max(0, GridHeight + 1)) * CellSpacing); // Assuming CellWidth is also CellHeight
 
     public double MaxPreviewColumnWidth
     {
@@ -170,6 +177,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private void OnSelectedSymmetryChanged(string value)
     {
         Debug.WriteLine($"Symmetry selected: {value}");
+        OnPropertyChanged(nameof(SelectedSymmetryType)); // Notify the symmetry type property
         // Add logic here if needed when symmetry changes
     }
 
@@ -408,13 +416,13 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         _stopwatchTimer.Tick += StopwatchTimer_Tick;
         _stopwatchTimer.Start();
 
-        SolverResult result = new SolverResult(false, "Initialization failed", 0, null);
+        SolverResult result = new SolverResult(false, "Initialization failed", 0, null, null);
         try
         {
             var blockedCells = GridEditorCells.Where(c => c.State == CellState.Blocked).Select(c => (c.Row, c.Col)).ToImmutableList();
             var enabledShapes = AvailableShapes.Where(s => s.IsEnabled).ToImmutableList();
-            if (!enabledShapes.Any()) { result = new SolverResult(false, "No shapes enabled.", 0, null); return; }
-            var parameters = new SolveParameters(GridWidth, GridHeight, blockedCells, enabledShapes, SelectedSymmetry, UseSoftSymmetry);
+            if (!enabledShapes.Any()) { result = new SolverResult(false, "No shapes enabled.", 0, null, null); return; }
+            var parameters = new SolveParameters(GridWidth, GridHeight, blockedCells, enabledShapes, SelectedSymmetryType, UseSoftSymmetry);
 
             Debug.WriteLine("Calling SolverService.SolveAsync...");
             result = await _solverService.SolveAsync(parameters);
@@ -423,7 +431,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         catch (Exception ex)
         {
             Debug.WriteLine($"Error during solver execution: {ex}");
-            result = new SolverResult(false, $"Error: {ex.Message}", 0, null);
+            result = new SolverResult(false, $"Error: {ex.Message}", 0, null, null);
         }
         finally
         {
@@ -435,6 +443,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             if (result.Success && result.SolutionPlacements != null)
             {
                 ResultTitle = $"Result: (Took {finalTimeStr})";
+                _lastSolverLogs = _lastSolverLogs?.Concat(result.IterationLogs).ToImmutableList() ?? result.IterationLogs;
                 DisplaySolution(result.SolutionPlacements);
             }
             else
@@ -616,4 +625,14 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     }
     public void Dispose() { Dispose(disposing: true); GC.SuppressFinalize(this); }
 
+}
+
+public enum SelectedSymmetryType
+{
+    None,
+    Rotational90,
+    Rotational180,
+    Horizontal,
+    Vertical,
+    Quadrants
 }

@@ -45,39 +45,49 @@
                 <TextBlock Text="Grid Editor"
                            Style="{ThemeResource SubtitleTextBlockStyle}"
                            HorizontalAlignment="Center" />
-                <Border BorderBrush="Gray"
-                        BorderThickness="1"
-                        HorizontalAlignment="Center">
-                    <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                                  VerticalScrollBarVisibility="Auto">
-                        <ItemsRepeater ItemsSource="{Binding GridEditorCells}"
-                                       Width="{Binding CalculatedGridTotalWidth}">
-                            <ItemsRepeater.Layout>
-                                <UniformGridLayout MinItemWidth="15"
-                                                   MinItemHeight="15"
-                                                   Orientation="Horizontal"
-                                                   MinColumnSpacing="1"
-                                                   MinRowSpacing="1"
-                                                   ItemsJustification="Start"
-                                                   ItemsStretch="None" />
-                            </ItemsRepeater.Layout>
-                            <ItemsRepeater.ItemTemplate>
-                                <DataTemplate x:DataType="viewmodels:CellViewModel">
-                                    <Button Background="{Binding Background}"
-                                            Command="{Binding CellClickedCommand}"
-                                            MinWidth="15"
-                                            MinHeight="15"
-                                            Padding="0"
-                                            Margin="0"
-                                            BorderThickness="0.5"
-                                            BorderBrush="LightGray"
-                                            VerticalAlignment="Stretch"
-                                            HorizontalAlignment="Stretch" />
-                                </DataTemplate>
-                            </ItemsRepeater.ItemTemplate>
-                        </ItemsRepeater>
-                    </ScrollViewer>
-                </Border>
+                <Grid HorizontalAlignment="Center">
+                    <Border x:Name="EditorGridBorder"
+                            BorderBrush="Gray"
+                            BorderThickness="1"
+                            Width="{Binding CalculatedGridTotalWidth}"
+                            Height="{Binding CalculatedGridTotalHeight}">
+                        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Disabled">
+                            <ItemsRepeater ItemsSource="{Binding GridEditorCells}"
+                                           Width="{Binding CalculatedGridTotalWidth}"
+                                           Height="{Binding CalculatedGridTotalHeight}">
+                                <!-- Layout and Template -->
+                                <ItemsRepeater.Layout>
+                                    <UniformGridLayout MinItemWidth="15"
+                                                       MinItemHeight="15"
+                                                       Orientation="Horizontal"
+                                                       MinColumnSpacing="1"
+                                                       MinRowSpacing="1"
+                                                       ItemsJustification="Start"
+                                                       ItemsStretch="None" />
+                                </ItemsRepeater.Layout>
+                                <ItemsRepeater.ItemTemplate>
+                                    <DataTemplate x:DataType="viewmodels:CellViewModel">
+                                        <Button Background="{Binding Background}"
+                                                Command="{Binding CellClickedCommand}"
+                                                MinWidth="15"
+                                                MinHeight="15"
+                                                Padding="0"
+                                                Margin="0"
+                                                BorderThickness="0.5"
+                                                BorderBrush="LightGray"
+                                                VerticalAlignment="Stretch"
+                                                HorizontalAlignment="Stretch" />
+                                    </DataTemplate>
+                                </ItemsRepeater.ItemTemplate>
+                            </ItemsRepeater>
+                        </ScrollViewer>
+                    </Border>
+                    <Canvas x:Name="SymmetryOverlayCanvas"
+                            Width="{Binding ActualWidth, ElementName=EditorGridBorder}"
+                            Height="{Binding ActualHeight, ElementName=EditorGridBorder}"
+                            IsHitTestVisible="False" />
+                </Grid>
                 <StackPanel Orientation="Horizontal"
                             HorizontalAlignment="Center">
                     <TextBlock Text="Symmetry:"

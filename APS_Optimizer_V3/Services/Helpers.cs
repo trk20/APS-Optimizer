@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Collections.Immutable;
 using APS_Optimizer_V3.ViewModels; // For ImmutableList if needed
 
 namespace APS_Optimizer_V3.Services;
@@ -21,7 +19,7 @@ public record SolveParameters(
     int GridHeight,
     ImmutableList<(int r, int c)> BlockedCells, // Absolute coordinates of blocked cells
     ImmutableList<ShapeViewModel> EnabledShapes,
-    string SelectedSymmetry,
+    SelectedSymmetryType SelectedSymmetry,
     bool UseSoftSymmetry
 );
 
@@ -30,7 +28,8 @@ public record SolverResult(
     bool Success,
     string Message, // Error or success message
     int RequiredCells, // The number of cells required for the successful solution
-    ImmutableList<Placement>? SolutionPlacements // The list of placements in the solution
+    ImmutableList<Placement>? SolutionPlacements, // The list of placements in the solution
+    ImmutableList<SolverIterationLog>? IterationLogs
 );
 
 public enum SymmetryType
@@ -43,4 +42,12 @@ public enum SymmetryType
     // Potentially add Rotate270 if needed, though often covered by other symmetries/rotations
 }
 
+public record SolverIterationLog(
+    int IterationNumber,
+    int RequiredCells,
+    int Variables,
+    int Clauses,
+    TimeSpan Duration,
+    bool IsSatisfiable
+);
 
