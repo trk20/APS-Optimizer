@@ -12,7 +12,7 @@
     <Page.DataContext>
         <viewmodels:MainViewModel x:Name="CustomViewModel" />
         <converters:BooleanToVisibilityConverter x:Key="BoolToVis" />
-        <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolConverter" />
+        <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
     </Page.DataContext>
     <Grid Padding="5">
         <Grid.RowDefinitions>
@@ -78,20 +78,30 @@
                         </ItemsRepeater>
                     </ScrollViewer>
                 </Border>
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Force Symmetry:"
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center">
+                    <TextBlock Text="Symmetry:"
+                               HorizontalAlignment="Center"
                                VerticalAlignment="Center"
-                               Margin="0,0,5,0" />
+                               Margin="60,0,5,0" />
                     <ComboBox ItemsSource="{Binding SymmetryOptions}"
                               SelectedItem="{Binding SelectedSymmetry, Mode=TwoWay}"
+                              HorizontalAlignment="Center"
                               VerticalAlignment="Center"
                               MinWidth="180"
-                              Margin="0,0,15,0" />
-                    <Button Content="Solve"
-                            Command="{Binding SolveCommand}"
-                            HorizontalAlignment="Center"
-                            Style="{ThemeResource AccentButtonStyle}" />
+                              Margin="0,0,10,0" />
+                    <ToggleSwitch VerticalAlignment="Center"
+                                  IsOn="{Binding UseSoftSymmetry, Mode=TwoWay}"
+                                  HorizontalAlignment="Right"
+                                  OnContent="Soft"
+                                  OffContent="Hard"
+                                  Margin="0,0,0,0"
+                                  ToolTipService.ToolTip="If soft, splits inconsistent symmetric groups (e.g., overlapping center) into individual pieces. If hard, discards such groups entirely." />
                 </StackPanel>
+                <Button Content="Solve"
+                        Command="{Binding SolveCommand}"
+                        HorizontalAlignment="Center"
+                        Style="{ThemeResource AccentButtonStyle}" />
                 <StackPanel Orientation="Horizontal"
                             Spacing="5"
                             VerticalAlignment="Center"

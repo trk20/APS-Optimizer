@@ -52,7 +52,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     // --- Configuration Properties ---
     public List<string> TemplateOptions { get; } = new List<string> { /* Options */ "Circle (Center Hole)", "Circle (No Hole)", "None" };
-    public List<string> SymmetryOptions { get; } = new List<string> { /* Options */ "None", "Rotational (order 4 / 90°)", "Rotational (order 2 / 180°)", "One Line Reflexive (horizontal)", "One Line Reflexive (vertical)", "Two Line Reflexive" };
+    public List<string> SymmetryOptions { get; } = new List<string> { /* Options */ "None", "Rotational (90°)", "Rotational (180°)", "Horizontal", "Vertical", "Quadrants" };
 
     private string _selectedTemplate = "Circle (Center Hole)";
     public string SelectedTemplate
@@ -81,7 +81,14 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
-    private int _gridWidth = 23;
+    private bool _useSoftSymmetry = true; // Default to Soft
+    public bool UseSoftSymmetry
+    {
+        get => _useSoftSymmetry;
+        set => SetProperty(ref _useSoftSymmetry, value); // Use SetProperty from base
+    }
+
+    private int _gridWidth = 21;
     // REMOVE [NotifyPropertyChangedFor] attribute
     public int GridWidth
     {
@@ -99,7 +106,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     }
 
 
-    private int _gridHeight = 23;
+    private int _gridHeight = 21;
     public int GridHeight
     {
         get => _gridHeight;
@@ -313,9 +320,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         while (AvailableShapes.Any()) { /* ... remove and dispose ... */ }
         AvailableShapes.Clear();
         // Add default shapes...
-        bool[,] tShapeBase = { { true, true, true }, { false, true, false } }; bool[,] crossShapeBase = { { false, true, false }, { true, true, true }, { false, true, false } }; bool[,] lShapeBase = { { true, false }, { true, false }, { true, true } }; bool[,] lineShapeBase = { { true, true, true, true } };
-        AvailableShapes.Add(new ShapeViewModel("T-Shape", tShapeBase)); AvailableShapes.Add(new ShapeViewModel("Cross", crossShapeBase)); AvailableShapes.Add(new ShapeViewModel("L-Shape", lShapeBase)); AvailableShapes.Add(new ShapeViewModel("Line-4", lineShapeBase));
-        foreach (var shape in AvailableShapes) { shape.IsEnabledChanged += ShapeViewModel_IsEnabledChanged; }
+        bool[,] tShapeBase = { { true, true, true }, { false, true, false } }; bool[,] crossShapeBase = { { false, true, false }, { true, true, true }, { false, true, false } };
+        AvailableShapes.Add(new ShapeViewModel("3-Clip", tShapeBase)); AvailableShapes.Add(new ShapeViewModel("4-Clip", crossShapeBase) { IsEnabled = false });
+        foreach (var shape in AvailableShapes)
+        {
+            shape.IsEnabledChanged += ShapeViewModel_IsEnabledChanged;
+        }
         OnPropertyChanged(nameof(MaxPreviewColumnWidth));
         UpdateSharedRotationTimerState();
     }
@@ -404,7 +414,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             var blockedCells = GridEditorCells.Where(c => c.State == CellState.Blocked).Select(c => (c.Row, c.Col)).ToImmutableList();
             var enabledShapes = AvailableShapes.Where(s => s.IsEnabled).ToImmutableList();
             if (!enabledShapes.Any()) { result = new SolverResult(false, "No shapes enabled.", 0, null); return; }
-            var parameters = new SolveParameters(GridWidth, GridHeight, blockedCells, enabledShapes, SelectedSymmetry);
+            var parameters = new SolveParameters(GridWidth, GridHeight, blockedCells, enabledShapes, SelectedSymmetry, UseSoftSymmetry);
 
             Debug.WriteLine("Calling SolverService.SolveAsync...");
             result = await _solverService.SolveAsync(parameters);

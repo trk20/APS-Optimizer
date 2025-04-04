@@ -19,78 +19,71 @@ public class SolverService
         var stopwatch = Stopwatch.StartNew();
         Debug.WriteLine($"Solver started. Grid: {parameters.GridWidth}x{parameters.GridHeight}, Shapes: {parameters.EnabledShapes.Count}, Symmetry: {parameters.SelectedSymmetry}");
 
-        // 1. Generate Placements
-        var (allPlacements, placementVarMap) = GeneratePlacements(parameters);
+        // 1. Generate all possible valid placements (raw)
+        var (allPlacements, _) = GeneratePlacements(parameters); // Don't need placementVarMap from here anymore
         if (!allPlacements.Any())
         {
             return new SolverResult(false, "No valid placements possible for any shape.", 0, null);
         }
         Debug.WriteLine($"Generated {allPlacements.Count} raw placements.");
 
-        // 2. Apply Symmetry & Assign Variables
-        object problemRepresentation;
-        Dictionary<int, object> variableToObjectMap;
+        // 2. Apply Symmetry and Group Placements -> Get ISolveElements
         VariableManager varManager = new VariableManager();
+        var solveElements = ApplySymmetryAndGroup(
+            allPlacements,
+            parameters,
+            varManager,
+            out var variableToObjectMap // Gets populated by ApplySymmetryAndGroup
+        );
+        // 'solveElements' now contains ISolveElement objects (Placement or SymmetryGroup)
+        // 'variableToObjectMap' maps the assigned VariableId to the corresponding ISolveElement
 
-        if (parameters.SelectedSymmetry == "None")
+        if (!solveElements.Any()) // Should not happen if allPlacements was not empty, but check anyway
         {
-            foreach (var p in allPlacements)
-            {
-                placementVarMap[p.PlacementId] = varManager.GetNextVariable();
-            }
-            variableToObjectMap = allPlacements.ToDictionary(p => placementVarMap[p.PlacementId], p => (object)p);
-            problemRepresentation = allPlacements;
-            Debug.WriteLine($"Using {variableToObjectMap.Count} variables for placements (no symmetry).");
-        }
-        else
-        {
-            // --- Fallback to no symmetry (as symmetry is not implemented) ---
-            Debug.WriteLine($"Warning: Symmetry '{parameters.SelectedSymmetry}' not fully implemented. Proceeding without symmetry grouping.");
-            foreach (var p in allPlacements)
-            {
-                placementVarMap[p.PlacementId] = varManager.GetNextVariable();
-            }
-            variableToObjectMap = allPlacements.ToDictionary(p => placementVarMap[p.PlacementId], p => (object)p);
-            problemRepresentation = allPlacements;
-            // --- End Fallback ---
-            // TODO: Implement actual symmetry grouping here when ready.
+            return new SolverResult(false, "Grouping resulted in zero elements.", 0, null);
         }
 
-        // 3. Detect Collisions
-        var cellCollisions = DetectCollisions(problemRepresentation, placementVarMap, parameters.GridWidth, parameters.GridHeight);
+
+        // 3. Detect Collisions (using ISolveElements)
+        var cellCollisions = DetectCollisions(solveElements, parameters.GridWidth, parameters.GridHeight);
         Debug.WriteLine($"Detected collisions across {cellCollisions.Count} cells.");
 
-        // 4. Generate Base CNF (Collision Constraints) as List<List<int>>
+
+        // 4. Generate Base CNF (Collision Constraints)
         var baseClauses = new List<List<int>>();
         foreach (var kvp in cellCollisions)
         {
-            var collidingVars = kvp.Value;
+            var collidingVars = kvp.Value; // These are VariableIDs of ISolveElements
             if (collidingVars.Count > 1)
             {
                 var (atMostClauses, _) = SequentialCounter.EncodeAtMostK(collidingVars, 1, varManager);
                 baseClauses.AddRange(atMostClauses);
             }
         }
+
         Debug.WriteLine($"Generated {baseClauses.Count} base clauses for collisions. Max Var ID so far: {varManager.GetMaxVariableId()}");
 
-        // 5. Iterative Solving Loop
+        // 5. Iterative Solving Loop (using GCD)
+        // ... (Calculate GCD, set initial requiredCells - NO CHANGES here) ...
+        var shapeAreas = parameters.EnabledShapes.Select(s => s.GetBaseRotationGrid().Cast<bool>().Count(c => c)).Where(area => area > 0).ToList();
+        if (!shapeAreas.Any()) { /* handle error */ return new SolverResult(false, "...", 0, null); }
+        int decrementStep = CalculateListGcd(shapeAreas);
         int totalAvailableCells = parameters.GridWidth * parameters.GridHeight - parameters.BlockedCells.Count;
-        int minShapeArea = parameters.EnabledShapes.Any() ? parameters.EnabledShapes.Min(s => s.GetBaseRotationGrid().Cast<bool>().Count(c => c)) : 1;
-        if (minShapeArea <= 0) minShapeArea = 1;
-        int requiredCells = (totalAvailableCells / minShapeArea) * minShapeArea;
+        int requiredCells = (totalAvailableCells / decrementStep) * decrementStep;
 
-        while (requiredCells >= 0) // Loop until 0 or solution found
+
+        while (requiredCells >= 0)
         {
             Debug.WriteLine($"Attempting to solve for at least {requiredCells} covered cells.");
-            var currentClauses = new List<List<int>>(baseClauses); // Copy base clauses
+            var currentClauses = new List<List<int>>(baseClauses);
             var currentVarManager = new VariableManager();
-            // Ensure currentVarManager starts after base variables
             while (currentVarManager.GetMaxVariableId() < varManager.GetMaxVariableId()) { currentVarManager.GetNextVariable(); }
 
             // 6. Generate Coverage Constraint CNF (using Y variables)
+            // --- This part needs updating to link Y vars to ISolveElement vars ---
             int[,] yVars = new int[parameters.GridHeight, parameters.GridWidth];
             var yVarLinkClauses = new List<List<int>>();
-            var yVarList = new List<int>(); // Active Y variables for available cells
+            var yVarList = new List<int>();
 
             for (int r = 0; r < parameters.GridHeight; r++)
             {
@@ -103,17 +96,20 @@ public class SolverService
                     yVarList.Add(yVar);
                     int cellIndex = r * parameters.GridWidth + c;
 
-                    if (cellCollisions.TryGetValue(cellIndex, out var placementsCoveringCell))
+                    // Find which ISolveElements cover this cell
+                    if (cellCollisions.TryGetValue(cellIndex, out var elementsCoveringCellVars))
                     {
-                        // Y[r,c] => OR(Placements)  <=> -Y OR P1 OR P2 ...
-                        var yImpPlacementsClause = new List<int> { -yVar };
-                        yImpPlacementsClause.AddRange(placementsCoveringCell);
-                        yVarLinkClauses.Add(yImpPlacementsClause);
+                        // Y[r,c] => OR(Elements covering (r,c))
+                        // CNF: -Y[r,c] OR E1 OR E2 ... (where E_i is the VariableId of the ISolveElement)
+                        var yImpElementsClause = new List<int> { -yVar };
+                        yImpElementsClause.AddRange(elementsCoveringCellVars);
+                        yVarLinkClauses.Add(yImpElementsClause);
 
-                        // Placement_i => Y[r,c] <=> -Pi OR Y
-                        foreach (int pVar in placementsCoveringCell)
+                        // Element_i => Y[r,c] for each E_i covering (r,c)
+                        // CNF: -E_i OR Y[r,c]
+                        foreach (int elementVar in elementsCoveringCellVars)
                         {
-                            yVarLinkClauses.Add(new List<int> { -pVar, yVar });
+                            yVarLinkClauses.Add(new List<int> { -elementVar, yVar });
                         }
                     }
                     else
@@ -123,22 +119,19 @@ public class SolverService
                 }
             }
             currentClauses.AddRange(yVarLinkClauses);
+            // --- End Y Variable Update ---
 
-            // Encode Sum(Y_vars) >= requiredCells <=> AtMost(n-k) on negated Y vars
-            int k_for_atmost = totalAvailableCells - requiredCells;
-            if (k_for_atmost < 0) k_for_atmost = 0;
 
-            Debug.WriteLine($"Encoding AtMostK for {yVarList.Count} negated Y variables with k={k_for_atmost}");
-            var (coverageClausesList, _) = SequentialCounter.EncodeAtMostK(
-                yVarList.Select(y => -y).ToList(),
-                k_for_atmost,
-                currentVarManager);
+            // Encode Sum(Y_vars) >= requiredCells
+            // ... (AtLeastK/AtMostK encoding remains the same, using yVarList) ...
+            var (coverageClausesList, _) = SequentialCounter.EncodeAtLeastK(yVarList, requiredCells, currentVarManager);
             currentClauses.AddRange(coverageClausesList);
 
-            // 7. Finalize CNF String and Run Solver
+
+            // 7. Finalize CNF and Run Solver
             int totalVars = currentVarManager.GetMaxVariableId();
             string finalCnfString = FormatDimacs(currentClauses, totalVars);
-            // File.WriteAllText($"debug_solver_input_{requiredCells}.cnf", finalCnfString); // Optional debug
+            // File.WriteAllText($"debug_solver_input_{requiredCells}.cnf", finalCnfString);
 
             var (sat, solutionVars) = await RunSatSolver(finalCnfString);
 
@@ -147,21 +140,26 @@ public class SolverService
             {
                 stopwatch.Stop();
                 Debug.WriteLine($"SATISFIABLE found for >= {requiredCells} cells. Time: {stopwatch.ElapsedMilliseconds} ms");
-                var solutionPlacements = MapResult(solutionVars, variableToObjectMap, placementVarMap);
+
+                // *** UPDATE MAPPING TO USE ISolveElement ***
+                var solutionPlacements = MapResult(solutionVars, variableToObjectMap);
                 return new SolverResult(true, $"Solution found covering at least {requiredCells} cells.", requiredCells, solutionPlacements);
             }
             else
             {
+                // ... (UNSAT handling remains the same, decrement by GCD) ...
                 Debug.WriteLine($"UNSATISFIABLE for >= {requiredCells} cells.");
-                if (requiredCells == 0) break; // Stop if even 0 is unsatisfiable (shouldn't happen)
-                requiredCells -= minShapeArea;
-                if (requiredCells < 0) requiredCells = 0; // Ensure it checks 0 if needed
+                if (requiredCells == 0) break;
+                requiredCells -= decrementStep;
+                if (requiredCells < 0) requiredCells = 0;
             }
-        }
+        } // End while loop
 
+        // ... (No solution found handling) ...
         stopwatch.Stop();
         return new SolverResult(false, "No solution found for any possible coverage.", 0, null);
     }
+
 
     // --- Helper to Format DIMACS String ---
     private string FormatDimacs(List<List<int>> clauses, int variableCount)
@@ -195,14 +193,14 @@ public class SolverService
     private (List<Placement>, Dictionary<int, int>) GeneratePlacements(SolveParameters parameters)
     {
         var placements = new List<Placement>();
-        var placementVarMap = new Dictionary<int, int>(); // Maps PlacementID -> CNF Var ID (assigned later)
+        var placementVarMap = new Dictionary<int, int>();
         int placementIdCounter = 0;
-        var blockedSet = parameters.BlockedCells.ToHashSet(); // Faster lookups
+        var blockedSet = parameters.BlockedCells.ToHashSet();
 
         for (int shapeIndex = 0; shapeIndex < parameters.EnabledShapes.Count; shapeIndex++)
         {
             var shapeVM = parameters.EnabledShapes[shapeIndex];
-            var rotations = shapeVM.GetAllRotationGrids(); // Get all unique rotations
+            var rotations = shapeVM.GetAllRotationGrids();
 
             for (int rotIndex = 0; rotIndex < rotations.Count; rotIndex++)
             {
@@ -210,8 +208,9 @@ public class SolverService
                 int pHeight = grid.GetLength(0);
                 int pWidth = grid.GetLength(1);
 
-                if (pHeight == 0 || pWidth == 0) continue; // Skip empty shapes
+                if (pHeight == 0 || pWidth == 0) continue;
 
+                // Ensure loops correctly prevent shape *bounding box* from going off edge
                 for (int r = 0; r <= parameters.GridHeight - pHeight; r++)
                 {
                     for (int c = 0; c <= parameters.GridWidth - pWidth; c++)
@@ -228,19 +227,38 @@ public class SolverService
                                     int gridR = r + pr;
                                     int gridC = c + pc;
 
+                                    // *** ADD EXPLICIT BOUNDS CHECK HERE ***
+                                    // This check should technically be redundant if outer loops are correct,
+                                    // but acts as a safeguard against unexpected issues.
+                                    if (gridR < 0 || gridR >= parameters.GridHeight || gridC < 0 || gridC >= parameters.GridWidth)
+                                    {
+                                        Debug.WriteLine($"!!! Internal Error: Calculated coordinate ({gridR},{gridC}) out of bounds in GeneratePlacements. Shape: {shapeVM.Name}, Pos ({r},{c}), Offset ({pr},{pc})");
+                                        isValid = false;
+                                        break; // Exit inner loop (pc)
+                                    }
+                                    // *** END ADDED CHECK ***
+
                                     if (blockedSet.Contains((gridR, gridC)))
                                     {
                                         isValid = false;
-                                        break;
+                                        break; // Exit inner loop (pc)
                                     }
                                     covered.Add((gridR, gridC));
                                 }
                             }
-                            if (!isValid) break;
+                            if (!isValid) break; // Exit outer loop (pr)
                         }
 
                         if (isValid)
                         {
+                            // Ensure covered list is not empty if shape had cells
+                            if (grid.Cast<bool>().Any(cell => cell) && !covered.Any())
+                            {
+                                Debug.WriteLine($"Warning: Placement deemed valid but covered list is empty. Shape: {shapeVM.Name}, Pos ({r},{c})");
+                                // Decide how to handle - skip placement?
+                                continue;
+                            }
+
                             var placement = new Placement(
                                 placementIdCounter++,
                                 shapeIndex,
@@ -248,7 +266,7 @@ public class SolverService
                                 rotIndex,
                                 r, c,
                                 grid,
-                                covered.ToImmutableList()
+                                covered.ToImmutableList() // Use the validated list
                             );
                             placements.Add(placement);
                         }
@@ -256,25 +274,29 @@ public class SolverService
                 }
             }
         }
+        // placementVarMap is assigned later during grouping
         return (placements, placementVarMap);
     }
 
+
     private Dictionary<int, List<int>> DetectCollisions(
-       object problemRepresentation,
-       Dictionary<int, int> placementVarMap, // Maps PlacementID -> CNF Var ID
-       int gridWidth, int gridHeight)
+    List<ISolveElement> solveElements, // Accept list of elements
+    int gridWidth, int gridHeight)
     {
+        // Maps cell index (r * gridWidth + c) to list of CNF variable IDs covering it
         var cellCollisions = new Dictionary<int, List<int>>();
 
-        Action<Placement> processPlacement = (placement) =>
+        foreach (var element in solveElements)
         {
-            if (!placementVarMap.TryGetValue(placement.PlacementId, out int cnfVarId))
+            int elementVarId = element.VariableId; // Get the variable ID for this element
+            if (elementVarId <= 0)
             {
-                Debug.WriteLine($"Error: CNF Variable ID not found for Placement ID {placement.PlacementId}");
-                return;
+                Debug.WriteLine($"Error: Invalid VariableId {elementVarId} encountered during collision detection.");
+                continue; // Skip elements with invalid IDs
             }
 
-            foreach (var (r, c) in placement.CoveredCells)
+            // Get all unique cells covered by this element (handles singletons and groups)
+            foreach (var (r, c) in element.GetAllCoveredCells())
             {
                 int cellIndex = r * gridWidth + c;
                 if (!cellCollisions.TryGetValue(cellIndex, out var varList))
@@ -282,26 +304,16 @@ public class SolverService
                     varList = new List<int>();
                     cellCollisions[cellIndex] = varList;
                 }
-                if (!varList.Contains(cnfVarId))
+                // Add the element's variable ID (not the placement ID)
+                if (!varList.Contains(elementVarId))
                 {
-                    varList.Add(cnfVarId);
+                    varList.Add(elementVarId);
                 }
             }
-        };
-
-        if (problemRepresentation is List<Placement> placements)
-        {
-            foreach (var placement in placements) { processPlacement(placement); }
         }
-        else if (problemRepresentation is List<SymmetryGroup> groups)
-        {
-            throw new NotImplementedException("Collision detection for symmetry groups not implemented.");
-            // TODO: Adapt for symmetry groups when implemented
-        }
-        else { throw new ArgumentException("Invalid problem representation type."); }
-
         return cellCollisions;
     }
+
 
     private async Task<(bool IsSat, List<int>? SolutionVariables)> RunSatSolver(string cnfContent)
     {
@@ -389,28 +401,421 @@ public class SolverService
     }
 
     private ImmutableList<Placement> MapResult(
-       List<int> trueVars,
-       Dictionary<int, object> variableToObjectMap,
-       Dictionary<int, int> placementVarMap)
+    List<int> trueVars, // List of TRUE VariableIDs from solver
+    Dictionary<int, ISolveElement> variableToObjectMap) // Map VarID -> ISolveElement
     {
-        var solutionPlacements = new List<Placement>();
+        var solutionPlacements = ImmutableList.CreateBuilder<Placement>();
 
-        foreach (int trueVar in trueVars)
+        foreach (int trueVarId in trueVars)
         {
-            if (variableToObjectMap.TryGetValue(trueVar, out object? obj))
+            // Look up the ISolveElement corresponding to the true variable
+            if (variableToObjectMap.TryGetValue(trueVarId, out ISolveElement? element))
             {
-                if (obj is Placement placement)
-                {
-                    solutionPlacements.Add(placement);
-                }
-                else if (obj is SymmetryGroup group)
-                {
-                    throw new NotImplementedException("Result mapping for symmetry groups not implemented.");
-                    // TODO: Add placements from the selected group when symmetry is implemented
-                }
+                // Add ALL placements represented by this element to the final solution
+                solutionPlacements.AddRange(element.GetPlacements());
             }
+            // else: True variable might be an auxiliary variable (from SeqCounter or Y-linking), ignore it.
         }
-        return solutionPlacements.ToImmutableList();
+
+        // Remove duplicates if multiple groups somehow contained the same placement instance (shouldn't happen with correct grouping)
+        // return solutionPlacements.ToImmutableHashSet(new PlacementComparer()).ToImmutableList(); // Requires a custom comparer
+        // Or simply return as is, assuming grouping is correct:
+        return solutionPlacements.ToImmutable();
     }
 
+
+    /// <summary>
+    /// Tries to transform a single point according to the specified symmetry type
+    /// relative to the grid center. Accounts for even/odd grid dimensions.
+    /// </summary>
+    /// <returns>True if the transformed point is within grid bounds, false otherwise.</returns>
+    private static bool TryTransformPoint(
+    int r, int c,           // Original cell coordinates
+    SymmetryType type,
+    int gridWidth, int gridHeight, // Use integer dimensions directly
+    out int newR, out int newC)
+    {
+        // Initialize to original coordinates
+        newR = r;
+        newC = c;
+
+        switch (type)
+        {
+            case SymmetryType.ReflectHorizontal:
+                // Reflect across horizontal center line
+                // Formula: new = (Dimension - 1) - old
+                newR = (gridHeight - 1) - r;
+                // newC remains c
+                break;
+
+            case SymmetryType.ReflectVertical:
+                // Reflect across vertical center line
+                // Formula: new = (Dimension - 1) - old
+                newC = (gridWidth - 1) - c;
+                // newR remains r
+                break;
+
+            case SymmetryType.Rotate180:
+                // Equivalent to ReflectHorizontal then ReflectVertical
+                newR = (gridHeight - 1) - r;
+                newC = (gridWidth - 1) - c;
+                break;
+
+            case SymmetryType.Rotate90:
+                // Keep using floating-point for 90-degree rotation for now,
+                // as pure integer grid-based rotation around a center is complex.
+                // Be mindful of potential precision issues near edges/center.
+                double centerX = (gridWidth - 1.0) / 2.0;   // Geometric center X index
+                double centerY = (gridHeight - 1.0) / 2.0;  // Geometric center Y index
+                double pointX = c + 0.5;                    // Center of original cell X
+                double pointY = r + 0.5;                    // Center of original cell Y
+                double gridCenterX = centerX + 0.5;         // Geometric center X coordinate
+                double gridCenterY = centerY + 0.5;         // Geometric center Y coordinate
+
+                // Vector from center to point
+                double dx = pointX - gridCenterX;
+                double dy = pointY - gridCenterY;
+
+                // Rotated vector (dy, -dx) translated back from center
+                double transformedX = gridCenterX + dy;
+                double transformedY = gridCenterY - dx;
+
+                // Convert back to integer cell indices (top-left corner) using Floor
+                // Floor is generally correct for mapping a coordinate to the grid cell index it falls within.
+                newC = (int)Math.Floor(transformedX);
+                newR = (int)Math.Floor(transformedY);
+
+                // --- Debug Logging Placeholder ---
+                // if (/* condition for suspect points, e.g., near edge */) {
+                //     Debug.WriteLine($"Rotate90: ({r},{c}) -> pt({pointX:F2},{pointY:F2}) | center({gridCenterX:F2},{gridCenterY:F2}) | d({dx:F2},{dy:F2}) -> tf({transformedX:F4},{transformedY:F4}) -> floor({newR},{newC})");
+                // }
+                // --- End Debug ---
+                break;
+
+            case SymmetryType.None:
+                // No change needed, newR/newC already initialized to r/c
+                break;
+
+            default:
+                // Should not happen if enum is exhaustive
+                throw new ArgumentOutOfRangeException(nameof(type), "Unsupported symmetry type.");
+        }
+
+        // --- Final Bounds Check ---
+        // This check is crucial regardless of integer or float calculation.
+        bool inBounds = newR >= 0 && newR < gridHeight && newC >= 0 && newC < gridWidth;
+
+        if (!inBounds)
+        {
+            // If out of bounds, reset to invalid coordinates to signal failure clearly
+            newR = -1;
+            newC = -1;
+            // Debug.WriteLine($"Transform failed bounds check: Type={type}, Original=({r},{c}), Attempted=({newR_before_reset},{newC_before_reset}), Grid=({gridWidth}x{gridHeight})");
+        }
+
+        return inBounds;
+    }
+    /// <summary>
+    /// Attempts to apply a geometric transformation to a set of covered cells.
+    /// Checks if all transformed cells are within bounds and not blocked.
+    /// </summary>
+    /// <param name="originalCells">The original set of absolute cell coordinates.</param>
+    /// <param name="type">The transformation to apply.</param>
+    /// <param name="gridWidth">Width of the main grid.</param>
+    /// <param name="gridHeight">Height of the main grid.</param>
+    /// <param name="blockedCells">A set of blocked cell coordinates for quick lookup.</param>
+    /// <returns>A new list of transformed cell coordinates if successful and valid, otherwise null.</returns>
+    public static ImmutableList<(int r, int c)>? TryTransformCoveredCells(
+        ImmutableList<(int r, int c)> originalCells,
+        SymmetryType type,
+        int gridWidth,
+        int gridHeight,
+        HashSet<(int r, int c)> blockedCells) // Pass HashSet for efficiency
+    {
+        if (type == SymmetryType.None) return originalCells; // No transformation needed
+
+        var transformedCells = ImmutableList.CreateBuilder<(int r, int c)>();
+        double centerX = (gridWidth - 1.0) / 2.0;
+        double centerY = (gridHeight - 1.0) / 2.0;
+
+        foreach (var (r, c) in originalCells)
+        {
+            if (!TryTransformPoint(r, c, type, gridWidth, gridHeight, out int newR, out int newC))
+            {
+                // Transformed point is out of bounds
+                // Debug.WriteLine($"Transform failed: Point ({r},{c}) -> ({newR},{newC}) out of bounds.");
+                return null;
+            }
+
+            var newCell = (newR, newC);
+            if (blockedCells.Contains(newCell))
+            {
+                // Transformed point lands on a blocked cell
+                Debug.WriteLine($"Transform failed: Point ({r},{c}) -> ({newR},{newC}) is blocked.");
+                return null;
+            }
+            transformedCells.Add(newCell);
+        }
+
+        // Important: Check if the number of cells is the same. Transformations should be bijective.
+        if (transformedCells.Count != originalCells.Count)
+        {
+            Debug.WriteLine($"Transform failed: Cell count mismatch. Original: {originalCells.Count}, Transformed: {transformedCells.Count}");
+            // This might happen if multiple original cells map to the same transformed cell,
+            // although unlikely with standard reflections/rotations.
+            return null;
+        }
+
+
+        // Return the immutable list of transformed cells
+        return transformedCells.ToImmutable();
+    }
+
+    private static string GenerateCoordinateKey(IEnumerable<(int r, int c)> cells)
+    {
+        // Sort by row, then column to ensure consistent ordering
+        var sortedCells = cells.OrderBy(cell => cell.r).ThenBy(cell => cell.c);
+        // Create a unique string representation
+        return string.Join(";", sortedCells.Select(cell => $"{cell.r},{cell.c}"));
+    }
+
+    private List<ISolveElement> ApplySymmetryAndGroup(
+    List<Placement> allPlacements,
+    SolveParameters parameters,
+    VariableManager varManager,
+    out Dictionary<int, ISolveElement> variableToObjectMap) // No inconsistentGroupVars output
+    {
+        variableToObjectMap = new Dictionary<int, ISolveElement>();
+        var solveElements = new List<ISolveElement>();
+        var assignedPlacementIds = new HashSet<int>();
+        var blockedCellsSet = parameters.BlockedCells.ToHashSet();
+        var placementLookup = new Dictionary<string, Placement>();
+
+        // Precompute placement lookup
+        foreach (var p in allPlacements)
+        {
+            string key = GenerateCoordinateKey(p.CoveredCells);
+            if (!placementLookup.ContainsKey(key)) placementLookup.Add(key, p);
+            // else: Handle duplicate key warning if necessary
+        }
+
+        var transformsToApply = GetSymmetryTransforms(parameters.SelectedSymmetry);
+
+        foreach (var seedPlacement in allPlacements)
+        {
+            if (assignedPlacementIds.Contains(seedPlacement.PlacementId)) continue; // Already processed
+
+            // --- Find all placements in this potential group ---
+            var currentGroupPlacements = new List<Placement>(); // Placements found via symmetry from seed
+            var visitedCoordinateKeys = new HashSet<string>();
+            var queue = new Queue<Placement>();
+            queue.Enqueue(seedPlacement);
+            visitedCoordinateKeys.Add(GenerateCoordinateKey(seedPlacement.CoveredCells));
+
+            while (queue.Count > 0)
+            {
+                var currentPlacement = queue.Dequeue();
+                // Check if already assigned *globally* before adding to current group list
+                // This prevents adding a placement that was already processed as part of a *different* group's split
+                if (assignedPlacementIds.Contains(currentPlacement.PlacementId)) continue;
+
+                currentGroupPlacements.Add(currentPlacement);
+                // Mark as assigned globally *only if it will be added to the results* (either group or split)
+                // We defer the global assignment until after the consistency check.
+
+                foreach (var transformType in transformsToApply)
+                {
+                    if (transformType == SymmetryType.None) continue;
+                    var transformedCells = TryTransformCoveredCells(currentPlacement.CoveredCells, transformType, parameters.GridWidth, parameters.GridHeight, blockedCellsSet);
+                    if (transformedCells != null)
+                    {
+                        string transformedKey = GenerateCoordinateKey(transformedCells);
+                        if (visitedCoordinateKeys.Add(transformedKey)) // Check if visited *within this group search*
+                        {
+                            if (placementLookup.TryGetValue(transformedKey, out var matchingPlacement) &&
+                                !assignedPlacementIds.Contains(matchingPlacement.PlacementId)) // Check global assignment
+                            {
+                                // Found a potential symmetric partner not yet assigned globally
+                                queue.Enqueue(matchingPlacement);
+                            }
+                        }
+                    }
+                }
+            } // End while queue
+
+            // --- Group found (currentGroupPlacements), now check consistency ---
+            bool isInternallyConsistent = true;
+            if (currentGroupPlacements.Count > 1)
+            {
+                for (int i = 0; i < currentGroupPlacements.Count; i++)
+                {
+                    var p1Cells = currentGroupPlacements[i].CoveredCells;
+                    for (int j = i + 1; j < currentGroupPlacements.Count; j++)
+                    {
+                        var p2Cells = currentGroupPlacements[j].CoveredCells;
+                        if (p1Cells.Intersect(p2Cells).Any())
+                        {
+                            isInternallyConsistent = false;
+                            Debug.WriteLine($"Symmetry Group Inconsistency Detected: Will split group originating from Placement {seedPlacement.PlacementId}. Placements {currentGroupPlacements[i].PlacementId} and {currentGroupPlacements[j].PlacementId} overlap.");
+                            break;
+                        }
+                    }
+                    if (!isInternallyConsistent) break;
+                }
+            }
+
+            // --- Add elements based on consistency ---
+            if (isInternallyConsistent)
+            {
+                // Consistent group: Assign ONE VariableId for the element (group or singleton)
+                int variableId = varManager.GetNextVariable();
+                ISolveElement elementToAdd;
+
+                if (currentGroupPlacements.Count == 1)
+                {
+                    var element = currentGroupPlacements[0];
+                    element.VariableId = variableId;
+                    elementToAdd = element;
+                }
+                else
+                {
+                    elementToAdd = new SymmetryGroup(variableId, currentGroupPlacements.ToImmutableList());
+                }
+
+                // Add the consistent element and mark its placements as globally assigned
+                solveElements.Add(elementToAdd);
+                variableToObjectMap.Add(variableId, elementToAdd);
+                foreach (var p in currentGroupPlacements) { assignedPlacementIds.Add(p.PlacementId); }
+            }
+            else
+            {
+                if (parameters.UseSoftSymmetry) // Check the boolean parameter
+                {
+                    // Soft Mode: Split into individual placements
+                    Debug.WriteLine($"Splitting inconsistent group (Soft Symmetry Enabled) starting with seed {seedPlacement.PlacementId}...");
+                    foreach (var placement in currentGroupPlacements)
+                    {
+                        // ... (logic remains the same: assign individual ID, add placement, mark assigned) ...
+                        if (assignedPlacementIds.Contains(placement.PlacementId)) continue;
+                        int individualVariableId = varManager.GetNextVariable();
+                        placement.VariableId = individualVariableId;
+                        solveElements.Add(placement);
+                        variableToObjectMap.Add(individualVariableId, placement);
+                        assignedPlacementIds.Add(placement.PlacementId);
+                    }
+                }
+                else // Hard Mode (UseSoftSymmetry is false)
+                {
+                    // Hard Mode: Discard the entire inconsistent group
+                    Debug.WriteLine($"Discarding inconsistent group (Soft Symmetry Disabled) starting with seed {seedPlacement.PlacementId}.");
+                    // Mark placements as assigned so they aren't picked up again
+                    foreach (var p in currentGroupPlacements) { assignedPlacementIds.Add(p.PlacementId); }
+                    // Do NOT add anything to solveElements or variableToObjectMap
+                }
+            }
+
+        } // End foreach seedPlacement
+
+        var elementCellsToId = new Dictionary<string, (ISolveElement Element, int Id)>();
+        foreach (var element in solveElements.ToList()) // Copy list as we might modify it
+        {
+            string cellsKey = GenerateCoordinateKey(element.GetAllCoveredCells());
+            if (elementCellsToId.TryGetValue(cellsKey, out var existing))
+            {
+                Debug.WriteLine($"Warning: Found duplicate solve elements covering same cells. VarIDs: {element.VariableId} and {existing.Id}");
+                solveElements.Remove(element); // Remove duplicate element
+                if (variableToObjectMap.ContainsKey(element.VariableId))
+                {
+                    variableToObjectMap.Remove(element.VariableId);
+                }
+            }
+            else
+            {
+                elementCellsToId[cellsKey] = (element, element.VariableId);
+            }
+        }
+
+        Debug.WriteLine($"Grouping resulted in {solveElements.Count} elements (valid groups/singletons/split individuals).");
+        return solveElements;
+    }
+
+
+    /// <summary>
+    /// Helper to get the basic symmetry operations required based on the user selection string.
+    /// </summary>
+    private List<SymmetryType> GetSymmetryTransforms(string selectedSymmetry)
+    {
+        // Returns the set of *generators* for the symmetry group.
+        // Applying these generators repeatedly explores the whole group.
+        switch (selectedSymmetry)
+        {
+            case "Rotational (180°)":
+                return new List<SymmetryType> { SymmetryType.Rotate180 };
+            case "Rotational (90°)":
+                // Rotating by 90 degrees generates 180 and 270 as well.
+                return new List<SymmetryType> { SymmetryType.Rotate90 };
+            case "Horizontal":
+                return new List<SymmetryType> { SymmetryType.ReflectHorizontal };
+            case "Vertical":
+                return new List<SymmetryType> { SymmetryType.ReflectVertical };
+            case "Quadrants":
+                return new List<SymmetryType> { SymmetryType.ReflectHorizontal, SymmetryType.ReflectVertical };
+            case "None":
+            default:
+                return new List<SymmetryType> { SymmetryType.None };
+        }
+
+    }
+
+    /// <summary>
+    /// Calculates the Greatest Common Divisor (GCD) of two integers using the Euclidean algorithm.
+    /// </summary>
+    private static int CalculateGcd(int a, int b)
+    {
+        while (b != 0)
+        {
+            int temp = b;
+            b = a % b; // Remainder
+            a = temp;
+        }
+        // When b becomes 0, a holds the GCD
+        return a;
+    }
+
+    /// <summary>
+    /// Calculates the Greatest Common Divisor (GCD) for a list of integers.
+    /// </summary>
+    /// <param name="numbers">An enumerable collection of integers.</param>
+    /// <returns>The GCD of the list. Returns 1 if the list is empty or null, or if the calculated GCD is less than 1.</returns>
+    private static int CalculateListGcd(IEnumerable<int> numbers)
+    {
+        // Handle empty or null input gracefully
+        if (numbers == null || !numbers.Any())
+        {
+            // Returning 1 is safe for the decrement step logic.
+            // Mathematically, GCD of an empty set is sometimes considered 0,
+            // but that would break the loop.
+            return 1;
+        }
+
+        // Start with the first number
+        int result = numbers.First();
+
+        // Iterate through the rest of the numbers, calculating GCD pairwise
+        foreach (int number in numbers.Skip(1))
+        {
+            result = CalculateGcd(result, number);
+
+            // Optimization: If the GCD ever reaches 1, it cannot get smaller.
+            // All subsequent GCD calculations with 1 will result in 1.
+            if (result == 1)
+            {
+                break;
+            }
+        }
+
+        // Ensure the result used for decrementing is at least 1
+        // (Handles cases where input might contain only 0s, though shape areas should be > 0)
+        return Math.Max(1, result);
+    }
 }
