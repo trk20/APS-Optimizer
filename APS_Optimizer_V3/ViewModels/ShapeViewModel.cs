@@ -1,14 +1,16 @@
 // ViewModels/ShapeViewModel.cs
 using System.Diagnostics;
 using APS_Optimizer_V3.Helpers;
-using Microsoft.UI; // Correct namespace
+using APS_Optimizer_V3.Services;
+using Microsoft.UI;
+using Microsoft.UI.Xaml.Shapes; // Correct namespace
 
 namespace APS_Optimizer_V3.ViewModels;
 public partial class ShapeViewModel : ViewModelBase, IDisposable
 {
     private string _name = "Unnamed Shape";
     private int _currentRotationIndex = 0;
-    private List<bool[,]> _rotations = new List<bool[,]>();
+    private List<CellType[,]> _rotations = new List<CellType[,]>();
     private bool _isEnabled = true;
     private Grid? _previewGrid;
 
@@ -41,7 +43,7 @@ public partial class ShapeViewModel : ViewModelBase, IDisposable
 
     private const double PreviewCellSize = 10.0;
 
-    public ShapeViewModel(string name, bool[,] baseShape)
+    public ShapeViewModel(string name, CellType[,] baseShape)
     {
         Name = name;
         GenerateRotations(baseShape);
@@ -50,51 +52,94 @@ public partial class ShapeViewModel : ViewModelBase, IDisposable
     }
 
     // GenerateRotations, RotateMatrix, GetMatrixSignature remain the same...
-    private void GenerateRotations(bool[,] baseShape)
+    private void GenerateRotations(CellType[,] baseShape)
     {
         _rotations.Clear();
         if (baseShape == null || baseShape.Length == 0) return;
-        HashSet<string> uniqueSignatures = new HashSet<string>();
-        bool[,] current = baseShape;
-        for (int i = 0; i < 4; i++)
+
+        // --- Simplified Uniqueness Check (Based on Non-Empty Cell Positions) ---
+        // This doesn't distinguish shapes with same outline but different internal types.
+        // A more robust signature would involve encoding the CellType values.
+        HashSet<string> uniquePositionSignatures = new HashSet<string>();
+        // ---
+
+        CellType[,] current = baseShape;
+        for (int i = 0; i < 4; i++) // Generate up to 4 rotations
         {
-            string signature = GetMatrixSignature(current);
-            if (uniqueSignatures.Add(signature)) _rotations.Add((bool[,])current.Clone());
+            // --- Simplified Signature ---
+            string signature = GetPositionSignature(current);
+            if (uniquePositionSignatures.Add(signature))
+            {
+                _rotations.Add((CellType[,])current.Clone());
+            }
+            // ---
+
             current = RotateMatrix(current);
         }
-        Debug.WriteLine($"Generated {_rotations.Count} unique rotations for {Name}.");
+        Debug.WriteLine($"Generated {_rotations.Count} unique rotations (based on outline) for {Name}.");
     }
-    private string GetMatrixSignature(bool[,] matrix)
-    { /* ... implementation ... */
+
+    private string GetPositionSignature(CellType[,] matrix)
+    {
         System.Text.StringBuilder sb = new System.Text.StringBuilder();
-        sb.Append($"{matrix.GetLength(0)}x{matrix.GetLength(1)}:");
-        for (int i = 0; i < matrix.GetLength(0); i++)
+        int rows = matrix.GetLength(0);
+        int cols = matrix.GetLength(1);
+        sb.Append($"{rows}x{cols}:");
+        for (int r = 0; r < rows; r++)
         {
-            for (int j = 0; j < matrix.GetLength(1); j++) sb.Append(matrix[i, j] ? '1' : '0');
+            for (int c = 0; c < cols; c++)
+            {
+                sb.Append(matrix[r, c] != CellType.Empty ? '1' : '0');
+            }
             sb.Append('|');
         }
         return sb.ToString();
     }
-    private bool[,] RotateMatrix(bool[,] matrix)
-    { /* ... implementation ... */
-        int rows = matrix.GetLength(0); int cols = matrix.GetLength(1);
-        bool[,] rotated = new bool[cols, rows];
-        for (int i = 0; i < rows; i++) for (int j = 0; j < cols; j++) rotated[j, rows - 1 - i] = matrix[i, j];
+
+
+    private CellType[,] RotateMatrix(CellType[,] matrix)
+    {
+        if (matrix == null || matrix.Length == 0) return new CellType[0, 0];
+        int rows = matrix.GetLength(0);
+        int cols = matrix.GetLength(1);
+        CellType[,] rotated = new CellType[cols, rows];
+        for (int i = 0; i < rows; i++)
+        {
+            for (int j = 0; j < cols; j++)
+            {
+                CellType originalType = matrix[i, j];
+                CellType rotatedType = originalType;
+
+                // Rotate Clip types
+                switch (originalType)
+                {
+                    case CellType.ClipN: rotatedType = CellType.ClipE; break;
+                    case CellType.ClipE: rotatedType = CellType.ClipS; break;
+                    case CellType.ClipS: rotatedType = CellType.ClipW; break;
+                    case CellType.ClipW: rotatedType = CellType.ClipN; break;
+                        // Other types remain the same relative to their cell
+                }
+                rotated[j, rows - 1 - i] = rotatedType;
+            }
+        }
         return rotated;
     }
 
 
-    private void UpdatePreview() // No functional changes needed here
+    private void UpdatePreview()
     {
         if (_rotations.Count == 0) { PreviewGrid = null; return; }
-        _currentRotationIndex = _currentRotationIndex % _rotations.Count; // Ensure index is valid
-        bool[,] currentShape = _rotations[_currentRotationIndex];
+        _currentRotationIndex = _currentRotationIndex % _rotations.Count;
+        CellType[,] currentShape = _rotations[_currentRotationIndex];
         PreviewHeight = currentShape.GetLength(0);
         PreviewWidth = currentShape.GetLength(1);
-        // No need to raise property changed manually if SetProperty is used, but keep if direct field access happens
-        // OnPropertyChanged(nameof(PreviewWidth)); OnPropertyChanged(nameof(PreviewHeight));
+        // Use SetProperty for PreviewWidth/Height if they are observable
+        SetProperty(ref _previewWidth, PreviewWidth, nameof(PreviewWidth));
+        SetProperty(ref _previewHeight, PreviewHeight, nameof(PreviewHeight));
+
 
         var newGrid = new Grid();
+        // Define rows and columns based on PreviewCellSize
         for (int r = 0; r < PreviewHeight; r++) newGrid.RowDefinitions.Add(new RowDefinition() { Height = new GridLength(PreviewCellSize) });
         for (int c = 0; c < PreviewWidth; c++) newGrid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(PreviewCellSize) });
 
@@ -102,16 +147,91 @@ public partial class ShapeViewModel : ViewModelBase, IDisposable
         {
             for (int c = 0; c < PreviewWidth; c++)
             {
-                Brush backgroundBrush = currentShape[r, c] ? new SolidColorBrush(Colors.DarkCyan) : new SolidColorBrush(Colors.Transparent);
-                var border = new Border { Background = backgroundBrush, BorderBrush = new SolidColorBrush(Colors.DimGray), BorderThickness = new Thickness(0.5) };
-                Grid.SetRow(border, r); Grid.SetColumn(border, c);
-                newGrid.Children.Add(border);
+                CellType type = currentShape[r, c];
+                if (type == CellType.Empty) continue; // Skip empty cells
+
+                // Create a container (like Border or Grid) for each cell's visuals
+                var cellContainer = new Grid // Use Grid to overlay elements easily
+                {
+                    Background = new SolidColorBrush(Colors.Transparent), // Base background
+                    BorderBrush = new SolidColorBrush(Colors.DimGray),
+                    BorderThickness = new Thickness(0.5)
+                };
+
+                // Add visuals based on type
+                AddCellVisuals(cellContainer, type, PreviewCellSize);
+
+                Grid.SetRow(cellContainer, r);
+                Grid.SetColumn(cellContainer, c);
+                newGrid.Children.Add(cellContainer);
             }
         }
-        // Use SetProperty for PreviewGrid to ensure UI updates
-        SetProperty(ref _previewGrid, newGrid, nameof(PreviewGrid));
-        // Debug.WriteLine($"Updated preview grid for {Name} to rotation {_currentRotationIndex} ({PreviewWidth}x{PreviewHeight})"); // Less verbose logging
+        PreviewGrid = newGrid; // Update the UI
     }
+
+    private void AddCellVisuals(Grid container, CellType type, double cellSize)
+    {
+        // Basic filled background for all non-empty types (adjust color if needed)
+        container.Background = new SolidColorBrush(Colors.DarkCyan);
+
+        // Add specific visuals based on type
+        Brush iconBrush = new SolidColorBrush(Colors.White); // Icon color
+        double iconStrokeThickness = 1.0;
+        double padding = cellSize * 0.2; // Padding for icons inside cell
+        double innerSize = cellSize - (2 * padding);
+
+        switch (type)
+        {
+            case CellType.Generic:
+                // Already has background, nothing more needed
+                break;
+
+            case CellType.Loader: // Hollow Circle
+                var loaderCircle = new Ellipse
+                {
+                    Width = innerSize,
+                    Height = innerSize,
+                    Stroke = iconBrush,
+                    StrokeThickness = iconStrokeThickness,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center
+                };
+                container.Children.Add(loaderCircle);
+                break;
+
+            case CellType.Cooler: // Circle in Circle
+                var outerCooler = new Ellipse { Width = innerSize, Height = innerSize, Fill = iconBrush, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
+                var innerCooler = new Ellipse { Width = innerSize * 0.5, Height = innerSize * 0.5, Fill = (Brush)container.Background, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center }; // Use background color for inner
+                container.Children.Add(outerCooler);
+                container.Children.Add(innerCooler);
+                break;
+
+            case CellType.ClipN:
+            case CellType.ClipE:
+            case CellType.ClipS:
+            case CellType.ClipW:
+                var clipRect = new Rectangle
+                {
+                    Fill = iconBrush,
+                    Width = type is CellType.ClipN or CellType.ClipS ? innerSize : innerSize * 0.4, // Wider for N/S
+                    Height = type is CellType.ClipE or CellType.ClipW ? innerSize : innerSize * 0.4, // Taller for E/W
+                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center
+                };
+                // Adjust alignment to attach to side
+                switch (type)
+                {
+                    case CellType.ClipN: clipRect.VerticalAlignment = VerticalAlignment.Top; break;
+                    case CellType.ClipE: clipRect.HorizontalAlignment = HorizontalAlignment.Right; break;
+                    case CellType.ClipS: clipRect.VerticalAlignment = VerticalAlignment.Bottom; break;
+                    case CellType.ClipW: clipRect.HorizontalAlignment = HorizontalAlignment.Left; break;
+                }
+                container.Children.Add(clipRect);
+                break;
+        }
+    }
+
+
 
     // --- Method called by MainViewModel's timer ---
     public void AdvanceRotation()
@@ -124,29 +244,23 @@ public partial class ShapeViewModel : ViewModelBase, IDisposable
     }
     // --------------------------------------------
 
-    public bool[,] GetBaseRotationGrid()
+    public CellType[,] GetBaseRotationGrid()
     {
-        if (_rotations.Count > 0)
-        {
-            // Assuming the first generated rotation is the "base" one used for editing
-            return _rotations[0];
-        }
-        // Fallback if no rotations generated (shouldn't happen with valid input)
-        return new bool[0, 0];
+        if (_rotations.Count > 0) return _rotations[0];
+        return new CellType[0, 0]; // Fallback
     }
 
+
     // Add method to update data after editing
-    public void UpdateShapeData(string newName, bool[,] newBaseShape)
+    public void UpdateShapeData(string newName, CellType[,] newBaseShape)
     {
         Name = newName;
-        // Regenerate rotations based on the new base shape
         GenerateRotations(newBaseShape);
-        // Reset rotation index and update preview
         _currentRotationIndex = 0;
         UpdatePreview();
-        // Timer is managed by MainViewModel, no action needed here
-        // But MainViewModel needs to re-evaluate timer state after edit
+        // MainViewModel needs to re-evaluate timer state
     }
+
 
     [RelayCommand]
     private void RequestEdit()
@@ -197,16 +311,32 @@ public partial class ShapeViewModel : ViewModelBase, IDisposable
     // }
     // -------------------------------------------
 
-
-    // GetCurrentRotationGrid, GetAllRotationGrids remain the same...
-    public bool[,] GetCurrentRotationGrid()
-    { /* ... implementation ... */
-        if (_rotations.Count == 0) return new bool[0, 0];
+    public CellType[,] GetCurrentRotationGrid()
+    {
+        if (_rotations.Count == 0) return new CellType[0, 0];
         _currentRotationIndex = _currentRotationIndex % _rotations.Count;
         return _rotations[_currentRotationIndex];
     }
-    public List<bool[,]> GetAllRotationGrids() => _rotations;
+
+    public List<CellType[,]> GetAllRotationGrids() => _rotations;
 
     // Helper to check if rotation is possible
     public bool CanRotate() => _rotations.Count > 1;
+
+    public int GetArea()
+    {
+        if (_rotations.Count == 0) return 0;
+        // Calculate area from the base rotation
+        CellType[,] baseGrid = _rotations[0];
+        int area = 0;
+        foreach (CellType cell in baseGrid)
+        {
+            if (cell != CellType.Empty)
+            {
+                area++;
+            }
+        }
+        return area;
+    }
+
 }

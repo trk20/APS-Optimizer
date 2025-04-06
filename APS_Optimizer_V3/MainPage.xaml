@@ -77,7 +77,25 @@
                                                 BorderThickness="0.5"
                                                 BorderBrush="LightGray"
                                                 VerticalAlignment="Stretch"
-                                                HorizontalAlignment="Stretch" />
+                                                HorizontalAlignment="Stretch">
+                                            <!-- Grid to overlay IconElement and Number -->
+                                            <Grid>
+                                                <!-- Display the dynamically generated IconElement -->
+                                                <ContentControl Content="{Binding CellIconElement}"
+                                                                HorizontalAlignment="Stretch"
+                                                                VerticalAlignment="Stretch"
+                                                                HorizontalContentAlignment="Stretch"
+                                                                VerticalContentAlignment="Stretch" />
+                                                <!-- Display Number (Overlays IconElement) -->
+                                                <!-- <TextBlock Text="{Binding DisplayNumber}"
+                                                       Foreground="Black"
+                                                       FontWeight="SemiBold"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="8"
+                                                       Visibility="{Binding DisplayNumberVisible}" /> -->
+                                            </Grid>
+                                        </Button>
                                     </DataTemplate>
                                 </ItemsRepeater.ItemTemplate>
                             </ItemsRepeater>
@@ -155,11 +173,23 @@
                                             MinHeight="15"
                                             BorderThickness="0.5"
                                             BorderBrush="LightGray">
-                                        <TextBlock Text="{Binding DisplayNumber}"
-                                                   Foreground="Black"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center"
-                                                   FontSize="8" />
+                                        <!-- Grid to overlay IconElement and Number -->
+                                        <Grid>
+                                            <!-- Display the dynamically generated IconElement -->
+                                            <ContentControl Content="{Binding CellIconElement}"
+                                                            HorizontalAlignment="Stretch"
+                                                            VerticalAlignment="Stretch"
+                                                            HorizontalContentAlignment="Stretch"
+                                                            VerticalContentAlignment="Stretch" />
+                                            <!-- Display Number (Overlays IconElement) -->
+                                            <!-- <TextBlock Text="{Binding DisplayNumber}"
+                                                       Foreground="Black"
+                                                       FontWeight="SemiBold"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="8"
+                                                       Visibility="{Binding DisplayNumberVisible}" /> -->
+                                        </Grid>
                                     </Border>
                                 </DataTemplate>
                             </ItemsRepeater.ItemTemplate>

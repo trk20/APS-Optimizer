@@ -51,3 +51,14 @@ public record SolverIterationLog(
     bool IsSatisfiable
 );
 
+public enum CellType
+{
+    Empty = 0,     // Represents an empty space in the shape definition grid
+    Generic = 1,   // Standard filled cell
+    Loader = 2,    // Cell with a hollow circle
+    ClipN = 10,    // Clip attached to North side
+    ClipE = 11,    // Clip attached to East side
+    ClipS = 12,    // Clip attached to South side
+    ClipW = 13,    // Clip attached to West side
+    Cooler = 20    // Cell with circle-in-circle
+}

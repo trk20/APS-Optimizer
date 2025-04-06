@@ -29,7 +29,7 @@ public record Placement(
     int RotationIndex,
     int Row,
     int Col,
-    bool[,] Grid,
+    CellType[,] Grid,
     ImmutableList<(int r, int c)> CoveredCells
 ) : ISolveElement // Implement the interface
 {

@@ -59,7 +59,11 @@ public class SolverService
 
         // 5. Iterative Solving Loop (using GCD)
         // ... (Calculate GCD, set initial requiredCells - NO CHANGES here) ...
-        var shapeAreas = parameters.EnabledShapes.Select(s => s.GetBaseRotationGrid().Cast<bool>().Count(c => c)).Where(area => area > 0).ToList();
+        var shapeAreas = parameters.EnabledShapes
+        .Select(s => s.GetArea()) // Use the GetArea method from ShapeViewModel
+        .Where(area => area > 0)
+        .Distinct()
+        .ToList();
         if (!shapeAreas.Any()) { /* handle error */ return new SolverResult(false, "...", 0, null, null); }
         int decrementStep = CalculateListGcd(shapeAreas);
         int totalAvailableCells = parameters.GridWidth * parameters.GridHeight - parameters.BlockedCells.Count;
@@ -198,24 +202,23 @@ public class SolverService
     private (List<Placement>, Dictionary<int, int>) GeneratePlacements(SolveParameters parameters)
     {
         var placements = new List<Placement>();
-        var placementVarMap = new Dictionary<int, int>();
+        // var placementVarMap = new Dictionary<int, int>(); // Not needed here anymore
         int placementIdCounter = 0;
         var blockedSet = parameters.BlockedCells.ToHashSet();
 
         for (int shapeIndex = 0; shapeIndex < parameters.EnabledShapes.Count; shapeIndex++)
         {
             var shapeVM = parameters.EnabledShapes[shapeIndex];
-            var rotations = shapeVM.GetAllRotationGrids();
+            var rotations = shapeVM.GetAllRotationGrids(); // Gets List<CellType[,]>
 
             for (int rotIndex = 0; rotIndex < rotations.Count; rotIndex++)
             {
-                var grid = rotations[rotIndex];
+                var grid = rotations[rotIndex]; // grid is CellType[,]
                 int pHeight = grid.GetLength(0);
                 int pWidth = grid.GetLength(1);
 
                 if (pHeight == 0 || pWidth == 0) continue;
 
-                // Ensure loops correctly prevent shape *bounding box* from going off edge
                 for (int r = 0; r <= parameters.GridHeight - pHeight; r++)
                 {
                     for (int c = 0; c <= parameters.GridWidth - pWidth; c++)
@@ -227,42 +230,53 @@ public class SolverService
                         {
                             for (int pc = 0; pc < pWidth; pc++)
                             {
-                                if (grid[pr, pc]) // If this part of the shape exists
+                                // *** Check against CellType.Empty ***
+                                if (grid[pr, pc] != CellType.Empty)
                                 {
                                     int gridR = r + pr;
                                     int gridC = c + pc;
 
-                                    // *** ADD EXPLICIT BOUNDS CHECK HERE ***
-                                    // This check should technically be redundant if outer loops are correct,
-                                    // but acts as a safeguard against unexpected issues.
                                     if (gridR < 0 || gridR >= parameters.GridHeight || gridC < 0 || gridC >= parameters.GridWidth)
                                     {
-                                        Debug.WriteLine($"!!! Internal Error: Calculated coordinate ({gridR},{gridC}) out of bounds in GeneratePlacements. Shape: {shapeVM.Name}, Pos ({r},{c}), Offset ({pr},{pc})");
-                                        isValid = false;
-                                        break; // Exit inner loop (pc)
+                                        Debug.WriteLine($"!!! Internal Error: Coords out of bounds. Shape: {shapeVM.Name}, Pos ({r},{c}), Offset ({pr},{pc})");
+                                        isValid = false; break;
                                     }
-                                    // *** END ADDED CHECK ***
-
                                     if (blockedSet.Contains((gridR, gridC)))
                                     {
-                                        isValid = false;
-                                        break; // Exit inner loop (pc)
+                                        isValid = false; break;
                                     }
                                     covered.Add((gridR, gridC));
                                 }
                             }
-                            if (!isValid) break; // Exit outer loop (pr)
+                            if (!isValid) break;
                         }
 
                         if (isValid)
                         {
-                            // Ensure covered list is not empty if shape had cells
-                            if (grid.Cast<bool>().Any(cell => cell) && !covered.Any())
+                            // *** CORRECTED CHECK for empty shapes ***
+                            bool shapeHasAnyCells = false;
+                            foreach (CellType cellType in grid) // Iterate grid directly
+                            {
+                                if (cellType != CellType.Empty)
+                                {
+                                    shapeHasAnyCells = true;
+                                    break;
+                                }
+                            }
+
+                            // Check if the shape definition had cells but none were placed (shouldn't happen if isValid)
+                            if (shapeHasAnyCells && !covered.Any())
                             {
                                 Debug.WriteLine($"Warning: Placement deemed valid but covered list is empty. Shape: {shapeVM.Name}, Pos ({r},{c})");
-                                // Decide how to handle - skip placement?
+                                continue; // Skip this potentially problematic placement
+                            }
+                            // Also skip if the shape definition itself was empty
+                            if (!shapeHasAnyCells)
+                            {
                                 continue;
                             }
+                            // *** END CORRECTION ***
+
 
                             var placement = new Placement(
                                 placementIdCounter++,
@@ -270,8 +284,8 @@ public class SolverService
                                 shapeVM.Name,
                                 rotIndex,
                                 r, c,
-                                grid,
-                                covered.ToImmutableList() // Use the validated list
+                                grid, // Pass the CellType[,] grid
+                                covered.ToImmutableList()
                             );
                             placements.Add(placement);
                         }
@@ -279,9 +293,10 @@ public class SolverService
                 }
             }
         }
-        // placementVarMap is assigned later during grouping
-        return (placements, placementVarMap);
+        // Return empty dictionary as var map is assigned later
+        return (placements, new Dictionary<int, int>());
     }
+
 
 
     private Dictionary<int, List<int>> DetectCollisions(

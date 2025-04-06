@@ -6,74 +6,161 @@
                xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                xmlns:viewmodels="using:APS_Optimizer_V3.ViewModels"
+               xmlns:services="using:APS_Optimizer_V3.Services"
+               xmlns:converters="using:APS_Optimizer_V3.Converters"
+               xmlns:shapes="using:Microsoft.UI.Xaml.Shapes"
                mc:Ignorable="d"
+               x:Name="ShapeEditorDialogRoot"
                Title="Shape Editor"
                PrimaryButtonText="Confirm"
                SecondaryButtonText="Cancel"
                DefaultButton="Primary"
                MinHeight="400"
-               MinWidth="400">
-    <StackPanel Spacing="10">
-        <!-- Name -->
-        <TextBox Header="Shape Name:"
-                 Text="{Binding ShapeName, Mode=TwoWay}" />
-        <!-- Grid Size -->
-        <StackPanel Orientation="Horizontal"
+               MinWidth="550">
+    <!-- *** MOVE Resources INSIDE ContentDialog.Resources *** -->
+    <ContentDialog.Resources>
+        <ResourceDictionary>
+            <converters:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
+            <!-- Add other dialog-specific resources here if needed -->
+        </ResourceDictionary>
+    </ContentDialog.Resources>
+    <!-- *************************************************** -->
+    <!-- The Grid is now the SINGLE direct child element -->
+    <Grid ColumnSpacing="15">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <!-- Editor Area -->
+            <ColumnDefinition Width="Auto" />
+            <!-- Cell Type Selection -->
+        </Grid.ColumnDefinitions>
+        <!-- Left Side: Editor -->
+        <StackPanel Grid.Column="0"
                     Spacing="10">
-            <NumberBox Header="Width:"
-                       Value="{Binding EditorGridWidth, Mode=TwoWay}"
-                       Minimum="1"
-                       Maximum="20"
-                       SpinButtonPlacementMode="Inline"
-                       SmallChange="1" />
-            <NumberBox Header="Height:"
-                       Value="{Binding EditorGridHeight, Mode=TwoWay}"
-                       Minimum="1"
-                       Maximum="20"
-                       SpinButtonPlacementMode="Inline"
-                       SmallChange="1" />
+            <!-- ... Name, Grid Size, Editor Grid ... -->
+            <TextBox Header="Shape Name:"
+                     Text="{Binding ShapeName, Mode=TwoWay}" />
+            <StackPanel Orientation="Horizontal"
+                        Spacing="10">
+                <NumberBox Header="Width:"
+                           Value="{Binding EditorGridWidth, Mode=TwoWay}"
+                           Minimum="1"
+                           Maximum="20"
+                           SpinButtonPlacementMode="Inline"
+                           SmallChange="1" />
+                <NumberBox Header="Height:"
+                           Value="{Binding EditorGridHeight, Mode=TwoWay}"
+                           Minimum="1"
+                           Maximum="20"
+                           SpinButtonPlacementMode="Inline"
+                           SmallChange="1" />
+            </StackPanel>
+            <TextBlock Text="Click cells to define shape:"
+                       Style="{ThemeResource CaptionTextBlockStyle}" />
+            <Border BorderBrush="Gray"
+                    BorderThickness="1"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto"
+                              MaxHeight="400"
+                              MaxWidth="600">
+                    <ItemsRepeater ItemsSource="{Binding EditorCells}"
+                                   Width="{Binding CalculatedEditorGridWidth}"
+                                   MaxWidth="{Binding CalculatedEditorGridWidth}">
+                        <ItemsRepeater.Layout>
+                            <UniformGridLayout MinItemWidth="20"
+                                               MinItemHeight="20"
+                                               Orientation="Horizontal"
+                                               MinColumnSpacing="1"
+                                               MinRowSpacing="1"
+                                               ItemsJustification="Start"
+                                               ItemsStretch="None" />
+                        </ItemsRepeater.Layout>
+                        <ItemsRepeater.ItemTemplate>
+                            <DataTemplate x:DataType="viewmodels:CellViewModel">
+                                <Button Padding="0"
+                                        Margin="0"
+                                        BorderThickness="0.5"
+                                        BorderBrush="LightGray"
+                                        VerticalAlignment="Stretch"
+                                        HorizontalAlignment="Stretch"
+                                        Command="{Binding CellClickedCommand}"
+                                        Background="{Binding Background}"
+                                        MinWidth="20"
+                                        MinHeight="20">
+                                    <Grid>
+                                        <!-- Icons -->
+                                        <Ellipse Width="12"
+                                                 Height="12"
+                                                 Stroke="{Binding IconBrush}"
+                                                 StrokeThickness="{Binding IconStrokeThickness}"
+                                                 VerticalAlignment="Center"
+                                                 HorizontalAlignment="Center"
+                                                 Visibility="{Binding LoaderVisible}" />
+                                        <Grid Visibility="{Binding CoolerVisible}"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Center">
+                                            <Ellipse Width="12"
+                                                     Height="12"
+                                                     Fill="{Binding IconBrush}" />
+                                            <Ellipse Width="6"
+                                                     Height="6"
+                                                     Fill="{Binding Background}"
+                                                     VerticalAlignment="Center"
+                                                     HorizontalAlignment="Center" />
+                                        </Grid>
+                                        <Rectangle Fill="{Binding IconBrush}"
+                                                   Width="{Binding ClipWidth}"
+                                                   Height="{Binding ClipHeight}"
+                                                   HorizontalAlignment="{Binding ClipHorizontalAlignment}"
+                                                   VerticalAlignment="{Binding ClipVerticalAlignment}"
+                                                   Visibility="{Binding ClipVisible}"
+                                                   Margin="{Binding IconMargin}" />
+                                        <TextBlock Text="{Binding DisplayNumber}"
+                                                   Foreground="Black"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="8"
+                                                   Visibility="{Binding DisplayNumberVisible}" />
+                                    </Grid>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsRepeater.ItemTemplate>
+                    </ItemsRepeater>
+                </ScrollViewer>
+            </Border>
         </StackPanel>
-        <!-- Grid Editor -->
-        <TextBlock Text="Click cells to define shape:"
-                   Style="{ThemeResource CaptionTextBlockStyle}" />
-        <Border BorderBrush="Gray"
-                BorderThickness="1"
-                HorizontalAlignment="Left"
-                VerticalAlignment="Top">
-            <ScrollViewer HorizontalScrollBarVisibility="Disabled"
-                          VerticalScrollBarVisibility="Disabled"
-                          MaxHeight="400"
-                          MaxWidth="600">
-                <!-- **** Add MaxWidth Binding **** -->
-                <ItemsRepeater ItemsSource="{Binding EditorCells}"
-                               Width="{Binding CalculatedEditorGridWidth}"
-                               MaxWidth="{Binding CalculatedEditorGridWidth}">
-                    <!-- ***************************** -->
-                    <ItemsRepeater.Layout>
-                        <UniformGridLayout MinItemWidth="20"
-                                           MinItemHeight="20"
-                                           Orientation="Horizontal"
-                                           MinColumnSpacing="1"
-                                           MinRowSpacing="1"
-                                           ItemsJustification="Start"
-                                           ItemsStretch="None" />
-                    </ItemsRepeater.Layout>
-                    <ItemsRepeater.ItemTemplate>
-                        <DataTemplate x:DataType="viewmodels:CellViewModel">
-                            <Button Background="{Binding Background}"
-                                    Command="{Binding CellClickedCommand}"
-                                    MinWidth="20"
-                                    MinHeight="20"
-                                    Padding="0"
-                                    Margin="0"
-                                    BorderThickness="0.5"
-                                    BorderBrush="LightGray"
-                                    VerticalAlignment="Stretch"
-                                    HorizontalAlignment="Stretch" />
-                        </DataTemplate>
-                    </ItemsRepeater.ItemTemplate>
-                </ItemsRepeater>
-            </ScrollViewer>
-        </Border>
-    </StackPanel>
+        <!-- Right Side: Cell Type Selection -->
+        <StackPanel Grid.Column="1"
+                    Spacing="5">
+            <TextBlock Text="Cell Type:"
+                       Style="{ThemeResource BodyStrongTextBlockStyle}" />
+            <ItemsControl ItemsSource="{Binding AvailableCellTypes}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="viewmodels:CellTypeInfo">
+                        <RadioButton GroupName="CellTypeGroup"
+                                     Margin="0,3"
+                                     DataContext="{Binding ElementName=ShapeEditorDialogRoot, Path=DataContext}"
+                                     IsChecked="{Binding SelectedCellType, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Bind Type}, Mode=OneWay}"
+                                     Command="{Binding SelectCellTypeCommand}"
+                                     CommandParameter="{x:Bind Type}">
+                            <StackPanel Orientation="Horizontal"
+                                        Spacing="5">
+                                <Border Width="16"
+                                        Height="16"
+                                        BorderBrush="Gray"
+                                        BorderThickness="1"
+                                        Margin="0,0,5,0">
+                                    <Rectangle Fill="DarkCyan" />
+                                </Border>
+                                <!-- Binding DisplayName directly from CellTypeInfo -->
+                                <TextBlock Text="{Binding DisplayName}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </RadioButton>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </Grid>
 </ContentDialog>
