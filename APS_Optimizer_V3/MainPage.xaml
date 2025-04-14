@@ -11,9 +11,13 @@
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
     <Page.DataContext>
         <viewmodels:MainViewModel x:Name="CustomViewModel" />
+    </Page.DataContext>
+    <Page.Resources>
         <converters:BooleanToVisibilityConverter x:Key="BoolToVis" />
         <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
-    </Page.DataContext>
+        <x:Double x:Key="CellSize">15</x:Double>
+        <x:Double x:Key="CellSpacing">0</x:Double>
+    </Page.Resources>
     <Grid Padding="5">
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
@@ -45,62 +49,63 @@
                 <TextBlock Text="Grid Editor"
                            Style="{ThemeResource SubtitleTextBlockStyle}"
                            HorizontalAlignment="Center" />
-                <Grid HorizontalAlignment="Center">
+                <Grid HorizontalAlignment="Center"
+                      VerticalAlignment="Top">
                     <Border x:Name="EditorGridBorder"
                             BorderBrush="Gray"
                             BorderThickness="1"
-                            Width="{Binding CalculatedGridTotalWidth}"
-                            Height="{Binding CalculatedGridTotalHeight}">
-                        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
-                                      VerticalScrollBarVisibility="Disabled">
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Top"
+                            Width="{Binding CalculatedGridTotalWidth, Mode=OneWay}"
+                            Height="{Binding CalculatedGridTotalHeight, Mode=OneWay}">
+                        <!-- ScrollViewer might be needed if grid can exceed container -->
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Auto"
+                                      MaxWidth="{Binding ActualWidth, ElementName=EditorGridBorder}"
+                                      MaxHeight="{Binding ActualHeight, ElementName=EditorGridBorder}">
                             <ItemsRepeater ItemsSource="{Binding GridEditorCells}"
-                                           Width="{Binding CalculatedGridTotalWidth}"
-                                           Height="{Binding CalculatedGridTotalHeight}">
-                                <!-- Layout and Template -->
+                                           HorizontalAlignment="Left"
+                                           VerticalAlignment="Top"
+                                           Width="{Binding CalculatedGridTotalWidth, Mode=OneWay}"
+                                           Height="{Binding CalculatedGridTotalHeight, Mode=OneWay}">
                                 <ItemsRepeater.Layout>
-                                    <UniformGridLayout MinItemWidth="15"
-                                                       MinItemHeight="15"
+                                    <UniformGridLayout MinItemWidth="{StaticResource CellSize}"
+                                                       MinItemHeight="{StaticResource CellSize}"
                                                        Orientation="Horizontal"
-                                                       MinColumnSpacing="1"
-                                                       MinRowSpacing="1"
+                                                       MinColumnSpacing="{StaticResource CellSpacing}"
+                                                       MinRowSpacing="{StaticResource CellSpacing}"
                                                        ItemsJustification="Start"
                                                        ItemsStretch="None" />
                                 </ItemsRepeater.Layout>
                                 <ItemsRepeater.ItemTemplate>
                                     <DataTemplate x:DataType="viewmodels:CellViewModel">
-                                        <Button Background="{Binding Background}"
-                                                Command="{Binding CellClickedCommand}"
-                                                MinWidth="15"
-                                                MinHeight="15"
+                                        <!-- Use Button for click interaction -->
+                                        <Button Command="{Binding CellClickedCommand}"
+                                                Background="{Binding Background, Mode=OneWay}"
+                                                MinWidth="{StaticResource CellSize}"
+                                                MinHeight="{StaticResource CellSize}"
                                                 Padding="0"
                                                 Margin="0"
                                                 BorderThickness="0.5"
                                                 BorderBrush="LightGray"
                                                 VerticalAlignment="Stretch"
-                                                HorizontalAlignment="Stretch">
-                                            <!-- Grid to overlay IconElement and Number -->
-                                            <Grid>
-                                                <!-- Display the dynamically generated IconElement -->
-                                                <ContentControl Content="{Binding CellIconElement}"
-                                                                HorizontalAlignment="Stretch"
-                                                                VerticalAlignment="Stretch"
-                                                                HorizontalContentAlignment="Stretch"
-                                                                VerticalContentAlignment="Stretch" />
-                                                <!-- Display Number (Overlays IconElement) -->
-                                                <!-- <TextBlock Text="{Binding DisplayNumber}"
-                                                       Foreground="Black"
-                                                       FontWeight="SemiBold"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center"
-                                                       FontSize="8"
-                                                       Visibility="{Binding DisplayNumberVisible}" /> -->
-                                            </Grid>
+                                                HorizontalAlignment="Stretch"
+                                                IsEnabled="{Binding DataContext.IsSolving, ElementName=ViewModel, Converter={StaticResource InverseBoolToVis}}">
+                                            <!-- ContentControl displays the generated icon -->
+                                            <ContentControl Content="{Binding CellIconElement, Mode=OneWay}"
+                                                            HorizontalAlignment="Stretch"
+                                                            VerticalAlignment="Stretch"
+                                                            HorizontalContentAlignment="Stretch"
+                                                            VerticalContentAlignment="Stretch"
+                                                            IsHitTestVisible="False" />
+                                            <!-- Removed TextBlock for DisplayNumber -->
                                         </Button>
                                     </DataTemplate>
                                 </ItemsRepeater.ItemTemplate>
                             </ItemsRepeater>
                         </ScrollViewer>
                     </Border>
+                    <!-- Canvas for Symmetry Overlay (if needed) -->
                     <Canvas x:Name="SymmetryOverlayCanvas"
                             Width="{Binding ActualWidth, ElementName=EditorGridBorder}"
                             Height="{Binding ActualHeight, ElementName=EditorGridBorder}"
@@ -145,51 +150,49 @@
             </StackPanel>
             <!-- Result Grid Area -->
             <StackPanel Grid.Column="1"
-                        HorizontalAlignment="Center"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Top"
                         Spacing="5">
-                <TextBlock Text="{Binding ResultTitle}"
+                <TextBlock Text="{Binding ResultTitle, Mode=OneWay}"
                            Style="{ThemeResource SubtitleTextBlockStyle}"
                            HorizontalAlignment="Center" />
                 <Border BorderBrush="Gray"
                         BorderThickness="1"
-                        HorizontalAlignment="Center">
-                    <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                                  VerticalScrollBarVisibility="Auto">
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        Width="{Binding CalculatedGridTotalWidth, Mode=OneWay}"
+                        Height="{Binding CalculatedGridTotalHeight, Mode=OneWay}">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Disabled"
+                                  MaxWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                  MaxHeight="{Binding ActualHeight, RelativeSource={RelativeSource TemplatedParent}}">
                         <ItemsRepeater ItemsSource="{Binding ResultGridCells}"
-                                       Width="{Binding CalculatedGridTotalWidth}">
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Top"
+                                       Width="{Binding CalculatedGridTotalWidth, Mode=OneWay}"
+                                       Height="{Binding CalculatedGridTotalHeight, Mode=OneWay}">
                             <ItemsRepeater.Layout>
-                                <UniformGridLayout MinItemWidth="15"
-                                                   MinItemHeight="15"
+                                <UniformGridLayout MinItemWidth="{StaticResource CellSize}"
+                                                   MinItemHeight="{StaticResource CellSize}"
                                                    Orientation="Horizontal"
-                                                   MinColumnSpacing="1"
-                                                   MinRowSpacing="1"
+                                                   MinColumnSpacing="{StaticResource CellSpacing}"
+                                                   MinRowSpacing="{StaticResource CellSpacing}"
                                                    ItemsJustification="Start"
                                                    ItemsStretch="None" />
                             </ItemsRepeater.Layout>
                             <ItemsRepeater.ItemTemplate>
                                 <DataTemplate x:DataType="viewmodels:CellViewModel">
-                                    <Border Background="{Binding Background}"
-                                            MinWidth="15"
-                                            MinHeight="15"
-                                            BorderThickness="0.5"
-                                            BorderBrush="LightGray">
-                                        <!-- Grid to overlay IconElement and Number -->
-                                        <Grid>
-                                            <!-- Display the dynamically generated IconElement -->
-                                            <ContentControl Content="{Binding CellIconElement}"
-                                                            HorizontalAlignment="Stretch"
-                                                            VerticalAlignment="Stretch"
-                                                            HorizontalContentAlignment="Stretch"
-                                                            VerticalContentAlignment="Stretch" />
-                                            <!-- Display Number (Overlays IconElement) -->
-                                            <!-- <TextBlock Text="{Binding DisplayNumber}"
-                                                       Foreground="Black"
-                                                       FontWeight="SemiBold"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center"
-                                                       FontSize="8"
-                                                       Visibility="{Binding DisplayNumberVisible}" /> -->
-                                        </Grid>
+                                    <!-- Use Border for non-interactive cells -->
+                                    <Border Background="White"
+                                            MinWidth="{StaticResource CellSize}"
+                                            MinHeight="{StaticResource CellSize}">
+                                        <!-- ContentControl displays the generated icon -->
+                                        <ContentControl Content="{Binding CellIconElement, Mode=OneWay}"
+                                                        HorizontalAlignment="Stretch"
+                                                        VerticalAlignment="Stretch"
+                                                        HorizontalContentAlignment="Stretch"
+                                                        VerticalContentAlignment="Stretch" />
+                                        <!-- Removed TextBlock for DisplayNumber -->
                                     </Border>
                                 </DataTemplate>
                             </ItemsRepeater.ItemTemplate>
@@ -205,10 +208,12 @@
         <StackPanel Grid.Row="0"
                     Grid.Column="1"
                     Spacing="10"
-                    MinWidth="250">
+                    MinWidth="250"
+                    VerticalAlignment="Top">
             <TextBlock Text="Shapes"
                        HorizontalAlignment="Center"
                        Style="{ThemeResource SubtitleTextBlockStyle}" />
+            <!-- ListView for Available Shapes -->
             <ListView x:Name="ShapesListView"
                       ItemsSource="{Binding AvailableShapes}"
                       MaxHeight="600"
@@ -218,42 +223,55 @@
                       IsItemClickEnabled="False">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="viewmodels:ShapeViewModel">
-                        <Grid ColumnSpacing="10"
+                        <Grid ColumnSpacing="15"
                               Margin="0,5">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="{Binding DataContext.MaxPreviewColumnWidth, ElementName=ShapesListView}" />
+                                <!-- Use calculated MaxPreviewColumnWidth from MainViewModel for consistent preview sizing -->
+                                <ColumnDefinition Width="{Binding DataContext.MaxPreviewColumnWidth, ElementName=ViewModel, Mode=OneWay}"
+                                                  Height="{Binding DataContext.MaxPreviewColumnWidth, ElementName=ViewModel, Mode=OneWay}" />
                                 <ColumnDefinition Width="*" />
                                 <!-- Controls Col -->
                             </Grid.ColumnDefinitions>
+                            <!-- Context Menu for Edit/Remove -->
                             <Grid.ContextFlyout>
                                 <MenuFlyout>
+                                    <!-- Use Command binding if preferred, or Click handlers -->
                                     <MenuFlyoutItem Text="Edit Shape"
-                                                    Click="EditShapeMenuItem_Click" />
+                                                    Click="EditShapeMenuItem_Click"
+                                                    CommandParameter="{Binding}" />
                                     <MenuFlyoutItem Text="Remove Shape"
-                                                    Click="RemoveShapeMenuItem_Click" />
+                                                    Click="RemoveShapeMenuItem_Click"
+                                                    CommandParameter="{Binding}" />
                                 </MenuFlyout>
                             </Grid.ContextFlyout>
+                            <!-- Shape Preview -->
                             <Border Grid.Column="0"
                                     BorderBrush="LightGray"
-                                    BorderThickness="1"
+                                    BorderThickness="0"
                                     VerticalAlignment="Center"
                                     HorizontalAlignment="Center"
-                                    Padding="1">
-                                <ContentControl Content="{Binding PreviewGrid}" />
+                                    Padding="0">
+                                <!-- ContentControl binds to the generated PreviewGrid UIElement -->
+                                <ContentControl Content="{Binding PreviewGrid, Mode=OneWay}" />
                             </Border>
+                            <!-- Shape Name and Controls -->
                             <StackPanel Grid.Column="1"
-                                        VerticalAlignment="Top"
+                                        VerticalAlignment="Center"
                                         Spacing="5">
-                                <TextBlock Text="{Binding Name}"
-                                           FontWeight="SemiBold" />
-                                <CheckBox IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                <TextBlock Text="{Binding Name, Mode=OneWay}"
+                                           FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis" />
+                                <CheckBox Content="Enabled"
+                                          IsChecked="{Binding IsEnabled, Mode=TwoWay}"
                                           VerticalAlignment="Center" />
+                                <!-- Add other info like Area if needed -->
+                                <!-- <TextBlock Text="{Binding Shape.Area, StringFormat='Area: {0}'}" FontSize="10"/> -->
                             </StackPanel>
                         </Grid>
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
-            <!-- Button Command remains the same -->
+            <!-- Add Shape Button -->
             <Button Content="Add Shape"
                     HorizontalAlignment="Center"
                     Command="{Binding ShowAddShapeDialogCommand}" />

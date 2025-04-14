@@ -1,3 +1,5 @@
+using APS_Optimizer_V3.Helpers;
+
 namespace APS_Optimizer_V3.Services;
 
 public interface ISolveElement
@@ -21,7 +23,6 @@ public interface ISolveElement
     IEnumerable<Placement> GetPlacements();
 }
 
-// Modify Placement record
 public record Placement(
     int PlacementId,
     int ShapeId,
@@ -29,7 +30,7 @@ public record Placement(
     int RotationIndex,
     int Row,
     int Col,
-    CellType[,] Grid,
+    CellTypeInfo[,] Grid,
     ImmutableList<(int r, int c)> CoveredCells
 ) : ISolveElement // Implement the interface
 {

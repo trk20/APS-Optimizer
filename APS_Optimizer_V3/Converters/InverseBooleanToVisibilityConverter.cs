@@ -1,6 +1,6 @@
 using Microsoft.UI.Xaml.Data;
 
-namespace APS_Optimizer_V3; // Adjust namespace
+namespace APS_Optimizer_V3.Converters; // Adjust namespace
 
 public class InverseBooleanToVisibilityConverter : IValueConverter
 {

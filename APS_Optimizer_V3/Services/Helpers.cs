@@ -1,3 +1,4 @@
+using APS_Optimizer_V3.Helpers;
 using APS_Optimizer_V3.ViewModels; // For ImmutableList if needed
 
 namespace APS_Optimizer_V3.Services;
@@ -18,7 +19,7 @@ public record SolveParameters(
     int GridWidth,
     int GridHeight,
     ImmutableList<(int r, int c)> BlockedCells, // Absolute coordinates of blocked cells
-    ImmutableList<ShapeViewModel> EnabledShapes,
+    ImmutableList<ShapeInfo> EnabledShapes,
     SelectedSymmetryType SelectedSymmetry,
     bool UseSoftSymmetry
 );

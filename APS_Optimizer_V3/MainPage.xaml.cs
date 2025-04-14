@@ -9,6 +9,7 @@ using Windows.Foundation;
 using Path = Microsoft.UI.Xaml.Shapes.Path; // Ensure ViewModel namespace is included
 using Point = Windows.Foundation.Point; // Ensure Point is from Windows.Foundation
 using Size = Windows.Foundation.Size; // Ensure Size is from Windows.Foundation
+using Brush = Microsoft.UI.Xaml.Media.Brush; // Ensure Brush is from Microsoft.UI.Xaml.Media
 
 namespace APS_Optimizer_V3;
 public sealed partial class MainPage : Page

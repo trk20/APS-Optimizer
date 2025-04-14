@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using APS_Optimizer_V3.Helpers;
 using APS_Optimizer_V3.ViewModels;
 
 namespace APS_Optimizer_V3.Services;
@@ -65,7 +66,7 @@ public class SolverService
         .Distinct()
         .ToList();
         if (!shapeAreas.Any()) { /* handle error */ return new SolverResult(false, "...", 0, null, null); }
-        int decrementStep = CalculateListGcd(shapeAreas);
+        int decrementStep = parameters.EnabledShapes.Any(s => s.CouldSelfIntersect()) ? 1 : CalculateListGcd(shapeAreas);
         int totalAvailableCells = parameters.GridWidth * parameters.GridHeight - parameters.BlockedCells.Count;
         int requiredCells = totalAvailableCells / decrementStep * decrementStep;
         int iterationCounter = 0;
@@ -208,8 +209,8 @@ public class SolverService
 
         for (int shapeIndex = 0; shapeIndex < parameters.EnabledShapes.Count; shapeIndex++)
         {
-            var shapeVM = parameters.EnabledShapes[shapeIndex];
-            var rotations = shapeVM.GetAllRotationGrids(); // Gets List<CellType[,]>
+            var shapeInfo = parameters.EnabledShapes[shapeIndex];
+            var rotations = shapeInfo.GetAllRotationGrids(); // Gets List<CellType[,]>
 
             for (int rotIndex = 0; rotIndex < rotations.Count; rotIndex++)
             {
@@ -230,15 +231,14 @@ public class SolverService
                         {
                             for (int pc = 0; pc < pWidth; pc++)
                             {
-                                // *** Check against CellType.Empty ***
-                                if (grid[pr, pc] != CellType.Empty)
+                                if (!grid[pr, pc].IsEmpty)
                                 {
                                     int gridR = r + pr;
                                     int gridC = c + pc;
 
                                     if (gridR < 0 || gridR >= parameters.GridHeight || gridC < 0 || gridC >= parameters.GridWidth)
                                     {
-                                        Debug.WriteLine($"!!! Internal Error: Coords out of bounds. Shape: {shapeVM.Name}, Pos ({r},{c}), Offset ({pr},{pc})");
+                                        Debug.WriteLine($"!!! Internal Error: Coords out of bounds. Shape: {shapeInfo.Name}, Pos ({r},{c}), Offset ({pr},{pc})");
                                         isValid = false; break;
                                     }
                                     if (blockedSet.Contains((gridR, gridC)))
@@ -255,9 +255,9 @@ public class SolverService
                         {
                             // *** CORRECTED CHECK for empty shapes ***
                             bool shapeHasAnyCells = false;
-                            foreach (CellType cellType in grid) // Iterate grid directly
+                            foreach (CellTypeInfo cellType in grid) // Iterate grid directly
                             {
-                                if (cellType != CellType.Empty)
+                                if (!cellType.IsEmpty)
                                 {
                                     shapeHasAnyCells = true;
                                     break;
@@ -267,7 +267,7 @@ public class SolverService
                             // Check if the shape definition had cells but none were placed (shouldn't happen if isValid)
                             if (shapeHasAnyCells && !covered.Any())
                             {
-                                Debug.WriteLine($"Warning: Placement deemed valid but covered list is empty. Shape: {shapeVM.Name}, Pos ({r},{c})");
+                                Debug.WriteLine($"Warning: Placement deemed valid but covered list is empty. Shape: {shapeInfo.Name}, Pos ({r},{c})");
                                 continue; // Skip this potentially problematic placement
                             }
                             // Also skip if the shape definition itself was empty
@@ -281,7 +281,7 @@ public class SolverService
                             var placement = new Placement(
                                 placementIdCounter++,
                                 shapeIndex,
-                                shapeVM.Name,
+                                shapeInfo.Name,
                                 rotIndex,
                                 r, c,
                                 grid, // Pass the CellType[,] grid
