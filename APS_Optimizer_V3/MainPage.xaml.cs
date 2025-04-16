@@ -93,7 +93,7 @@ public sealed partial class MainPage : Page
         double centerX = width / 2.0;
         double centerY = height / 2.0;
 
-        double arrowRadius = 20;//Math.Max(Math.Min(width, height) * 0.25, 10);
+        double arrowRadius = 15;//Math.Max(Math.Min(width, height) * 0.25, 10);
 
         var reflexiveStrokeBrush = new SolidColorBrush(Colors.Cyan)
         {

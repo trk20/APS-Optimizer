@@ -133,7 +133,8 @@ public class SolverService
             string finalCnfString = FormatDimacs(currentClauses, totalVars);
             // File.WriteAllText($"debug_solver_input_{requiredCells}.cnf", finalCnfString);
             var iterationStopwatch = Stopwatch.StartNew();
-            var (sat, solutionVars) = await RunSatSolver(finalCnfString, "--threads 1");
+            var threads = Environment.ProcessorCount;
+            var (sat, solutionVars) = await RunSatSolver(finalCnfString, $"--threads {threads}");
             iterationStopwatch.Stop();
             var logEntry = new SolverIterationLog(
                 IterationNumber: iterationCounter,
@@ -564,9 +565,6 @@ public class SolverService
         if (type == SymmetryType.None) return originalCells; // No transformation needed
 
         var transformedCells = ImmutableList.CreateBuilder<(int r, int c)>();
-        double centerX = (gridWidth - 1.0) / 2.0;
-        double centerY = (gridHeight - 1.0) / 2.0;
-
         foreach (var (r, c) in originalCells)
         {
             if (!TryTransformPoint(r, c, type, gridWidth, gridHeight, out int newR, out int newC))

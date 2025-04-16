@@ -11,26 +11,26 @@ namespace APS_Optimizer_V3.ViewModels;
 // Add ShapePreview state
 
 
-public partial class CellViewModel : ViewModelBase
+public partial class CellViewModel : ObservableObject
 {
-    // --- Static Colors/Brushes for Default Appearance ---
+    // --- Static Colors/Brushes ---
     private static readonly Brush DefaultEmptyBackground = new SolidColorBrush(Colors.White);
-    private static readonly Brush DefaultShapeBackground = new SolidColorBrush(Colors.DarkCyan); // Used for previews/shapes
-    private static readonly Brush DefaultBlockedBackground = new SolidColorBrush(Colors.DarkGray); // Slightly lighter than black
-    private static readonly Brush BlackBackground = new SolidColorBrush(Colors.Black); // For explicitly blocked cells in result
+    private static readonly Brush DefaultShapeBackground = new SolidColorBrush(Colors.DarkCyan);
+    private static readonly Brush DefaultBlockedBackground = new SolidColorBrush(Colors.DarkGray);
+    private static readonly Brush BlackBackground = new SolidColorBrush(Colors.Black);
+
     [ObservableProperty] private int _row;
     [ObservableProperty] private int _col;
     private Action<CellViewModel>? _onClickAction;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CellIconElement))] // Recalculate Icon when Type changes
-    [NotifyPropertyChangedFor(nameof(Background))]      // Recalculate Background when Type changes
+    [NotifyPropertyChangedFor(nameof(CellIconElement))]
+    [NotifyPropertyChangedFor(nameof(Background))]
     private CellTypeInfo _displayedCellType = CellTypeInfo.EmptyCellType;
 
-    // Visual State Properties
-    [ObservableProperty] private Brush _background = DefaultEmptyBackground; // Initialize with default
+    [ObservableProperty] private Brush _background = DefaultEmptyBackground;
+    // CellIconElement is the UIElement (e.g., Viewbox with Image) to be displayed
     [ObservableProperty] private UIElement? _cellIconElement = null;
-
 
     // --- Constructors ---
     public CellViewModel(int row, int col, Action<CellViewModel>? onClickAction, CellTypeInfo? type)
@@ -38,101 +38,98 @@ public partial class CellViewModel : ViewModelBase
         Row = row;
         Col = col;
         _onClickAction = onClickAction;
-        // Use provided type or default to Empty. Ensure type is not null.
         _displayedCellType = type ?? CellTypeInfo.EmptyCellType;
-        UpdateVisuals(); // Set initial appearance
+        UpdateVisuals();
     }
-
     public CellViewModel(int row, int col, CellTypeInfo? type) : this(row, col, null, type) { }
-    // Called when EditorState changes (for Main Grid Editor)
 
+    // --- Visual Update Logic ---
     public void UpdateVisuals()
     {
-        // 1. Determine Background based on Type and Context
-        if (_onClickAction != null) // Main editor grid cell (Clickable)
-        {
-            // Editor cells are just Empty or Blocked visually
-            Background = DisplayedCellType == CellTypeInfo.BlockedCellType
-               ? DefaultBlockedBackground // Visually distinct blocked state for editor
-               : DefaultEmptyBackground;
-            CellIconElement = null; // Editor cells don't show icons
-        }
-        else // Preview, Shape Editor, or Result cell (Not clickable via this VM)
-        {
-            // Result/Preview cells show specific backgrounds or placement colors
-            // Start with a default, SetResultPlacement will override for result grid
-            Background = DisplayedCellType.IsEmpty
-                ? DefaultEmptyBackground // Empty cells in result/preview are white
-                : (DisplayedCellType == CellTypeInfo.BlockedCellType
-                    ? BlackBackground      // Blocked cells in result/preview are black
-                    : DefaultShapeBackground); // Default for non-empty/non-blocked (e.g., previews)
 
-            // 2. Create Icon Element if needed
+        // Create Icon Element if applicable
+        if (!string.IsNullOrEmpty(DisplayedCellType.IconPath) && DisplayedCellType != CellTypeInfo.BlockedCellType && !DisplayedCellType.IsEmpty)
+        {
             CreateIconElement();
         }
+        else if (string.IsNullOrEmpty(DisplayedCellType.IconPath))
+        {
+            Debug.WriteLine("CellVM: No icon path found, setting CellIconElement to null.");
+            CellIconElement = null;
+        }
+        else
+        {
+            CellIconElement = null;
+        }
+        Background = DisplayedCellType.IsEmpty ? DefaultEmptyBackground : (DisplayedCellType.Name == CellTypeInfo.BlockedCellType.Name ? BlackBackground : DefaultShapeBackground);
     }
 
-
-
-    // [incomplete] Creates the specific icon UIElement based on Type
+    // Creates the visual element for the icon (Image inside a Viewbox)
     private void CreateIconElement()
     {
+        CellIconElement = null; // Reset
+        if (string.IsNullOrEmpty(DisplayedCellType.IconPath))
+        {
+            Debug.WriteLine($"CellVM ({Row},{Col}): No icon path found for {DisplayedCellType.Name}. CellIconElement remains null.");
+            return;
+        }
+
+        //Debug.WriteLine($"CellVM ({Row},{Col}): Creating icon for {DisplayedCellType.Name} using path '{DisplayedCellType.IconPath}'");
         try
         {
             var iconUri = new Uri($"ms-appx:///Assets/{DisplayedCellType.IconPath}");
+            //Debug.WriteLine($"CellVM ({Row},{Col}): Icon URI: {iconUri}");
+
+            // Use BitmapImage since we switched to PNGs
+            var bitmapImage = new BitmapImage(iconUri);
+            //bitmapImage.ImageOpened += (s, e) => Debug.WriteLine($"CellVM ({Row},{Col}): PNG Image opened for {iconUri}");
+            bitmapImage.ImageFailed += (s, e) => Debug.WriteLine($"CellVM ({Row},{Col}): PNG Image FAILED to open for {iconUri}. Error: {e.ErrorMessage}");
 
             var image = new Image()
             {
-                Source = iconUri,
-                Stretch = Stretch.Uniform // Scales the SVG while maintaining aspect ratio
+                Source = bitmapImage,
+                Stretch = Stretch.Uniform
             };
 
-            var cellBorder = new Border
-            {
-                //Background = PreviewShapeBackground,
-                Width = 15,
-                Height = 15,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-
-            // Apply rotation if the type is rotatable and not facing North
+            // Apply rotation if needed
             if (DisplayedCellType.IsRotatable && DisplayedCellType.CurrentRotation != RotationDirection.North)
             {
-                var rotateTransform = new RotateTransform
-                {
-                    Angle = (int)DisplayedCellType.CurrentRotation * 90, // 0, 90, 180, 270
-                };
+                var rotateTransform = new RotateTransform { Angle = (int)DisplayedCellType.CurrentRotation * 90, CenterX = 0.5, CenterY = 0.5 };
                 image.RenderTransform = rotateTransform;
-                // Important: Set the origin for the transform to be the center
                 image.RenderTransformOrigin = new Point(0.5, 0.5);
+                //Debug.WriteLine($"CellVM ({Row},{Col}): Applied rotation {rotateTransform.Angle} deg");
             }
-            cellBorder.Add(image); // Add image to the rectangle
 
+            // *** Return the Viewbox containing the Image ***
+            // The Button or Border in the DataTemplate will be the container
+            var viewbox = new Viewbox
+            {
+                Child = image,
+                Stretch = Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch
+            };
 
-            CellIconElement = cellBorder; // Set the property to the viewbox containing the image
+            CellIconElement = viewbox; // Assign the Viewbox
+            //Debug.WriteLine($"CellVM ({Row},{Col}): Successfully created and assigned CellIconElement (Viewbox).");
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error creating icon for {DisplayedCellType.Name} ({DisplayedCellType.IconPath}): {ex.Message}");
-            CellIconElement = null; // Fallback to no icon on error
+            Debug.WriteLine($"CellVM ({Row},{Col}): ***** ERROR creating icon Viewbox for {DisplayedCellType.Name} ({DisplayedCellType.IconPath}): {ex.Message}");
+            // CellIconElement remains null
         }
     }
 
 
-
-
     [RelayCommand]
-    private void CellClicked() { if (_onClickAction != null) _onClickAction.Invoke(this); }
+    private void CellClicked() { _onClickAction?.Invoke(this); }
 
     // --- Methods for Result Grid ---
     public void SetResultPlacement(Brush placementColor)
     {
-        if (_onClickAction != null) return; // Should not be called on editor cells
-
-        Background = placementColor; // Override background with placement color
-                                     // Re-create the icon element (it will be placed on top of the new background)
-                                     // Ensure the type itself isn't empty/blocked before creating icon
+        if (_onClickAction != null) return;
+        Background = placementColor;
+        // Re-create the icon element (if applicable)
         if (!DisplayedCellType.IsEmpty && DisplayedCellType != CellTypeInfo.BlockedCellType && !string.IsNullOrEmpty(DisplayedCellType.IconPath))
         {
             CreateIconElement();
@@ -143,28 +140,12 @@ public partial class CellViewModel : ViewModelBase
         }
     }
 
-
-    public void SetBlocked()
-    {
-        DisplayedCellType = CellTypeInfo.BlockedCellType;
-        Background = new SolidColorBrush(Colors.Black);
-    }
-
-    public void SetEmpty()
-    {
-        DisplayedCellType = CellTypeInfo.EmptyCellType;
-        Background = new SolidColorBrush(Colors.White);
-    }
-
+    public void SetBlocked() { DisplayedCellType = CellTypeInfo.BlockedCellType; }
+    public void SetEmpty() { DisplayedCellType = CellTypeInfo.EmptyCellType; }
 
     protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
-
-        if (e.PropertyName == nameof(DisplayedCellType))
-        {
-            // When the type changes programmatically, refresh visuals
-            UpdateVisuals();
-        }
+        if (e.PropertyName == nameof(DisplayedCellType)) { UpdateVisuals(); }
     }
 }
