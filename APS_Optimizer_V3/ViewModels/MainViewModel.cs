@@ -558,6 +558,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         if (!CanSolve()) return; // Redundant check, but safe
 
+        foreach (var resultCell in ResultGridCells)
+        {
+            if (!(resultCell.DisplayedCellType.Name == CellTypeInfo.BlockedCellType.Name)) UpdateResultGridCell(resultCell);
+        }
+
         IsSolving = true;
         CurrentSolveTime = "00:00.000";
         ResultTitle = "Result: (Solving...)";

@@ -43,7 +43,7 @@ public class SolverService
         var cellCollisions = DetectCollisions(solveElements, parameters.GridWidth, parameters.GridHeight);
         Debug.WriteLine($"Detected collisions across {cellCollisions.Count} cells.");
 
-
+        /*
         // 4. Generate Base CNF (Collision Constraints)
         var baseClauses = new List<List<int>>();
         foreach (var kvp in cellCollisions)
@@ -56,7 +56,62 @@ public class SolverService
             }
         }
 
-        Debug.WriteLine($"Generated {baseClauses.Count} base clauses for collisions. Max Var ID so far: {varManager.GetMaxVariableId()}");
+        Debug.WriteLine($"Generated {baseClauses.Count} base clauses for collisions. Max Var ID so far: {varManager.GetMaxVariableId()}");*/
+
+        var conflictClauses = new List<List<int>>();
+        // Use the solveElements list which contains all ISolveElement (Placements and SymmetryGroups)
+        for (int i = 0; i < solveElements.Count; i++)
+        {
+            for (int j = i + 1; j < solveElements.Count; j++)
+            {
+                var e1 = solveElements[i];
+                var e2 = solveElements[j];
+                int v1 = e1.VariableId;
+                int v2 = e2.VariableId;
+
+                // Find cells covered by both elements
+                // Use HashSet for efficient intersection lookup if performance is critical
+                var e1Cells = e1.GetAllCoveredCells(); // Consider caching this if called often
+                var e2Cells = e2.GetAllCoveredCells();
+                var overlappingCells = e1Cells.Intersect(e2Cells);
+
+                bool hardConflictFound = false;
+                foreach (var (r, c) in overlappingCells)
+                {
+                    // Determine the CellTypeInfo from each element at the overlapping cell
+                    bool type1Found = TryGetCellTypeForElementAt(e1, r, c, out CellTypeInfo? type1);
+                    bool type2Found = TryGetCellTypeForElementAt(e2, r, c, out CellTypeInfo? type2);
+
+                    // This case indicates an issue, likely GetAllCoveredCells doesn't match TryGetCellTypeForElementAt logic
+                    if (!type1Found || !type2Found || type1 == null || type2 == null)
+                    {
+                        Debug.WriteLine($"CRITICAL WARNING: Could not find cell type for overlapping cell ({r},{c}) between elements {v1} and {v2}. Assuming hard conflict.");
+                        hardConflictFound = true;
+                        break;
+                    }
+
+                    // Check for a "hard" conflict based on CanSelfIntersect and Name
+                    bool isConflictAtCell = !type1.CanSelfIntersect ||   // Type 1 doesn't allow self-intersection
+                                            !type2.CanSelfIntersect ||   // Type 2 doesn't allow self-intersection
+                                            type1.Name != type2.Name;    // Types are different (self-intersection only for same type)
+
+                    if (isConflictAtCell)
+                    {
+                        hardConflictFound = true;
+                        break; // Found one hard conflict cell, no need to check others for this pair
+                    }
+                    // else: This specific cell (r,c) is not a hard conflict (e.g., both are the same Cooler type)
+                }
+
+                // If a hard conflict was found at *any* overlapping cell, add the exclusion clause
+                if (hardConflictFound)
+                {
+                    conflictClauses.Add(new List<int> { -v1, -v2 });
+                }
+            }
+        }
+        Debug.WriteLine($"Generated {conflictClauses.Count} pairwise conflict clauses. Max Var ID so far: {varManager.GetMaxVariableId()}");
+
 
         // 5. Iterative Solving Loop (using GCD)
         // ... (Calculate GCD, set initial requiredCells - NO CHANGES here) ...
@@ -65,7 +120,7 @@ public class SolverService
         .Where(area => area > 0)
         .Distinct()
         .ToList();
-        if (!shapeAreas.Any()) { /* handle error */ return new SolverResult(false, "...", 0, null, null); }
+        if (!shapeAreas.Any()) { return new SolverResult(false, "...", 0, null, null); }
         int decrementStep = parameters.EnabledShapes.Any(s => s.CouldSelfIntersect()) ? 1 : CalculateListGcd(shapeAreas);
         int totalAvailableCells = parameters.GridWidth * parameters.GridHeight - parameters.BlockedCells.Count;
         int requiredCells = totalAvailableCells / decrementStep * decrementStep;
@@ -75,9 +130,9 @@ public class SolverService
         {
             iterationCounter++;
             Debug.WriteLine($"Attempting to solve for at least {requiredCells} covered cells.");
-            var currentClauses = new List<List<int>>(baseClauses);
-            var currentVarManager = new VariableManager();
-            while (currentVarManager.GetMaxVariableId() < varManager.GetMaxVariableId()) { currentVarManager.GetNextVariable(); }
+            var currentClauses = new List<List<int>>(conflictClauses);
+            var currentAuxVarManager = new VariableManager();
+            while (currentAuxVarManager.GetMaxVariableId() < varManager.GetMaxVariableId()) { currentAuxVarManager.GetNextVariable(); }
 
             // 6. Generate Coverage Constraint CNF (using Y variables)
             // --- This part needs updating to link Y vars to ISolveElement vars ---
@@ -91,16 +146,16 @@ public class SolverService
                 {
                     if (parameters.BlockedCells.Contains((r, c))) { yVars[r, c] = 0; continue; }
 
-                    int yVar = currentVarManager.GetNextVariable();
+                    // Use the aux manager for Y vars
+                    int yVar = currentAuxVarManager.GetNextVariable();
                     yVars[r, c] = yVar;
                     yVarList.Add(yVar);
                     int cellIndex = r * parameters.GridWidth + c;
 
-                    // Find which ISolveElements cover this cell
                     if (cellCollisions.TryGetValue(cellIndex, out var elementsCoveringCellVars))
                     {
                         // Y[r,c] => OR(Elements covering (r,c))
-                        // CNF: -Y[r,c] OR E1 OR E2 ... (where E_i is the VariableId of the ISolveElement)
+                        // CNF: -Y[r,c] OR E1 OR E2 ...
                         var yImpElementsClause = new List<int> { -yVar };
                         yImpElementsClause.AddRange(elementsCoveringCellVars);
                         yVarLinkClauses.Add(yImpElementsClause);
@@ -114,7 +169,8 @@ public class SolverService
                     }
                     else
                     {
-                        yVarLinkClauses.Add(new List<int> { -yVar }); // -Y (must be false)
+                        // If no element covers this cell, Y must be false
+                        yVarLinkClauses.Add(new List<int> { -yVar }); // -Y 0
                     }
                 }
             }
@@ -124,16 +180,16 @@ public class SolverService
 
             // Encode Sum(Y_vars) >= requiredCells
             // ... (AtLeastK/AtMostK encoding remains the same, using yVarList) ...
-            var (coverageClausesList, _) = SequentialCounter.EncodeAtLeastK(yVarList, requiredCells, currentVarManager);
+            var (coverageClausesList, _) = SequentialCounter.EncodeAtLeastK(yVarList, requiredCells, currentAuxVarManager);
             currentClauses.AddRange(coverageClausesList);
 
 
             // 7. Finalize CNF and Run Solver
-            int totalVars = currentVarManager.GetMaxVariableId();
+            int totalVars = currentAuxVarManager.GetMaxVariableId();
             string finalCnfString = FormatDimacs(currentClauses, totalVars);
             // File.WriteAllText($"debug_solver_input_{requiredCells}.cnf", finalCnfString);
             var iterationStopwatch = Stopwatch.StartNew();
-            var threads = Environment.ProcessorCount;
+            var threads = Math.Max(Environment.ProcessorCount - 1, 1);
             var (sat, solutionVars) = await RunSatSolver(finalCnfString, $"--threads {threads}");
             iterationStopwatch.Stop();
             var logEntry = new SolverIterationLog(
@@ -606,6 +662,41 @@ public class SolverService
         return string.Join(";", sortedCells.Select(cell => $"{cell.r},{cell.c}"));
     }
 
+    private static string GeneratePlacementSpecificKey(Placement placement)
+    {
+        if (placement == null || placement.CoveredCells == null || !placement.CoveredCells.Any())
+        {
+            return string.Empty; // Or handle as an error
+        }
+
+        var sortedCells = placement.CoveredCells.OrderBy(cell => cell.r).ThenBy(cell => cell.c);
+        var sb = new StringBuilder();
+        //sb.Append($"P({placement.PlacementId})_"); // Optional: Include PlacementID for debugging keys
+
+        foreach (var (r, c) in sortedCells)
+        {
+            // Calculate relative coordinates to look up in the placement's grid
+            int pr = r - placement.Row;
+            int pc = c - placement.Col;
+
+            // Basic bounds check (should be valid if CoveredCells is correct)
+            if (pr >= 0 && pr < placement.Grid.GetLength(0) && pc >= 0 && pc < placement.Grid.GetLength(1))
+            {
+                CellTypeInfo cellType = placement.Grid[pr, pc];
+                // Include coordinates, type name, and rotation in the key part for this cell
+                sb.Append($"{r},{c}:{cellType.Name}/{(int)cellType.CurrentRotation};"); // Using int value of enum
+            }
+            else
+            {
+                // This indicates an inconsistency between CoveredCells and the Grid/Row/Col
+                sb.Append($"{r},{c}:ERROR;");
+                Debug.WriteLine($"Warning: Inconsistency generating specific key for Placement {placement.PlacementId}. Cell ({r},{c}) not found in grid relative coords ({pr},{pc}).");
+            }
+        }
+        return sb.ToString();
+    }
+
+
     private List<ISolveElement> ApplySymmetryAndGroup(
     List<Placement> allPlacements,
     SolveParameters parameters,
@@ -616,14 +707,20 @@ public class SolverService
         var solveElements = new List<ISolveElement>();
         var assignedPlacementIds = new HashSet<int>();
         var blockedCellsSet = parameters.BlockedCells.ToHashSet();
-        var placementLookup = new Dictionary<string, Placement>();
+        var placementLookupByCoords = new Dictionary<string, List<Placement>>();
+
 
         // Precompute placement lookup
         foreach (var p in allPlacements)
         {
-            string key = GenerateCoordinateKey(p.CoveredCells);
-            if (!placementLookup.ContainsKey(key)) placementLookup.Add(key, p);
-            // else: Handle duplicate key warning if necessary
+            // Use the coordinate-only key here
+            string coordKey = GenerateCoordinateKey(p.CoveredCells);
+            if (!placementLookupByCoords.TryGetValue(coordKey, out var list))
+            {
+                list = new List<Placement>();
+                placementLookupByCoords[coordKey] = list;
+            }
+            list.Add(p);
         }
 
         var transformsToApply = GetSymmetryTransforms(parameters.SelectedSymmetry);
@@ -632,12 +729,22 @@ public class SolverService
         {
             if (assignedPlacementIds.Contains(seedPlacement.PlacementId)) continue; // Already processed
 
-            // --- Find all placements in this potential group ---
-            var currentGroupPlacements = new List<Placement>(); // Placements found via symmetry from seed
-            var visitedCoordinateKeys = new HashSet<string>();
+            var currentGroupPlacements = new List<Placement>();
+            // --- Use Placement-Specific Key for Visited Tracking within a group search ---
+            var visitedPlacementKeysInGroup = new HashSet<string>();
             var queue = new Queue<Placement>();
-            queue.Enqueue(seedPlacement);
-            visitedCoordinateKeys.Add(GenerateCoordinateKey(seedPlacement.CoveredCells));
+
+            string seedKey = GeneratePlacementSpecificKey(seedPlacement);
+            if (visitedPlacementKeysInGroup.Add(seedKey)) // Check if visitable
+            {
+                queue.Enqueue(seedPlacement);
+            }
+            else
+            {
+                // This should technically not happen if seed hasn't been assigned
+                Debug.WriteLine($"Warning: Seed placement {seedPlacement.PlacementId} specific key already visited?");
+                continue;
+            }
 
             while (queue.Count > 0)
             {
@@ -652,21 +759,33 @@ public class SolverService
 
                 foreach (var transformType in transformsToApply)
                 {
-                    if (transformType == SymmetryType.None) continue;
                     var transformedCells = TryTransformCoveredCells(currentPlacement.CoveredCells, transformType, parameters.GridWidth, parameters.GridHeight, blockedCellsSet);
                     if (transformedCells != null)
                     {
-                        string transformedKey = GenerateCoordinateKey(transformedCells);
-                        if (visitedCoordinateKeys.Add(transformedKey)) // Check if visited *within this group search*
+                        // 2. Find potential matches by COORDINATE footprint
+                        string transformedCoordKey = GenerateCoordinateKey(transformedCells);
+                        if (placementLookupByCoords.TryGetValue(transformedCoordKey, out var potentialMatches))
                         {
-                            if (placementLookup.TryGetValue(transformedKey, out var matchingPlacement) &&
-                                !assignedPlacementIds.Contains(matchingPlacement.PlacementId)) // Check global assignment
+                            // 3. Check each potential match
+                            foreach (var candidatePlacement in potentialMatches)
                             {
-                                // Found a potential symmetric partner not yet assigned globally
-                                queue.Enqueue(matchingPlacement);
+                                // Check if globally assigned
+                                if (assignedPlacementIds.Contains(candidatePlacement.PlacementId)) continue;
+
+                                // *** Crucial Check: Use Placement-Specific Key for Visited ***
+                                string candidateSpecificKey = GeneratePlacementSpecificKey(candidatePlacement);
+                                if (visitedPlacementKeysInGroup.Add(candidateSpecificKey))
+                                {
+                                    // This specific placement (coords + types/rotations)
+                                    // hasn't been visited *in this group search* yet.
+                                    // Assume it's the correct symmetric partner if found via coords.
+                                    // (Relies on GeneratePlacements creating all valid possibilities)
+                                    queue.Enqueue(candidatePlacement);
+                                }
                             }
                         }
                     }
+
                 }
             } // End while queue
 
@@ -674,22 +793,64 @@ public class SolverService
             bool isInternallyConsistent = true;
             if (currentGroupPlacements.Count > 1)
             {
-                for (int i = 0; i < currentGroupPlacements.Count; i++)
+                // Find all unique cells covered by *any* placement in this potential group
+                var allCellsInGroup = currentGroupPlacements
+                                        .SelectMany(p => p.CoveredCells)
+                                        .ToImmutableHashSet();
+
+                foreach (var (r, c) in allCellsInGroup)
                 {
-                    var p1Cells = currentGroupPlacements[i].CoveredCells;
-                    for (int j = i + 1; j < currentGroupPlacements.Count; j++)
+                    var placementsCoveringCell = new List<Placement>();
+                    // *** Refined logic: Collect NON-EMPTY types at the cell ***
+                    var nonEmptiesAtCell = new List<(Placement p, CellTypeInfo type)>();
+
+                    foreach (var p in currentGroupPlacements)
                     {
-                        var p2Cells = currentGroupPlacements[j].CoveredCells;
-                        if (p1Cells.Intersect(p2Cells).Any())
+                        // Check if placement p actually covers (r, c)
+                        int pr = r - p.Row;
+                        int pc = c - p.Col;
+                        if (pr >= 0 && pr < p.Grid.GetLength(0) && pc >= 0 && pc < p.Grid.GetLength(1))
                         {
-                            isInternallyConsistent = false;
-                            Debug.WriteLine($"Symmetry Group Inconsistency Detected: Will split group originating from Placement {seedPlacement.PlacementId}. Placements {currentGroupPlacements[i].PlacementId} and {currentGroupPlacements[j].PlacementId} overlap.");
-                            break;
+                            CellTypeInfo type = p.Grid[pr, pc];
+                            if (!type.IsEmpty) // *** Check if the type is NOT Empty ***
+                            {
+                                // Record the placement and its non-empty type contribution
+                                nonEmptiesAtCell.Add((p, type));
+                                // Add to the original list just for debugging message later if needed
+                                placementsCoveringCell.Add(p);
+                            }
+                            // Implicitly ignore overlaps where one or both contributions are Empty
                         }
                     }
-                    if (!isInternallyConsistent) break;
-                }
-            }
+
+                    // If 0 or 1 NON-EMPTY placements cover this cell, there's no conflict *at this cell*
+                    if (nonEmptiesAtCell.Count <= 1) continue;
+
+                    // Now, check for conflicts *only among the non-empty* placements covering this cell
+                    var typeNamesAtCell = new HashSet<string>();
+                    bool hardConflictAmongNonEmpty = false;
+
+                    foreach (var (_, type) in nonEmptiesAtCell) // Iterate through the non-empty types found
+                    {
+                        typeNamesAtCell.Add(type.Name);
+                        if (!type.CanSelfIntersect)
+                        {
+                            hardConflictAmongNonEmpty = true; // Found a non-intersecting type among the non-empty ones
+                        }
+                    }
+
+                    // Check conflict conditions for this cell (among non-empty contributors)
+                    // Conflict exists if a non-intersecting type is present OR if multiple different self-intersecting types are present
+                    if (hardConflictAmongNonEmpty || typeNamesAtCell.Count > 1)
+                    {
+                        isInternallyConsistent = false;
+                        // Updated Debug Message: refer to non-empty contributors
+                        Debug.WriteLine($"Symmetry Group Inconsistency Detected at cell ({r},{c}): Hard conflict or multiple types among non-empty contributors. Group originating from {seedPlacement.PlacementId}. Placements involved: {string.Join(", ", placementsCoveringCell.Select(p => p.PlacementId))}");
+                        break; // Found inconsistency, no need to check other cells
+                    }
+                    // else: All NON-EMPTY placements covering this cell are the same self-intersecting type - ok for this cell.
+                } // End foreach cell in group
+            } // End if currentGroupPlacements.Count > 1
 
             // --- Add elements based on consistency ---
             if (isInternallyConsistent)
@@ -743,26 +904,27 @@ public class SolverService
 
         } // End foreach seedPlacement
 
-        var elementCellsToId = new Dictionary<string, (ISolveElement Element, int Id)>();
-        foreach (var element in solveElements.ToList()) // Copy list as we might modify it
+        Debug.WriteLine($"Grouping resulted in {solveElements.Count} elements (valid groups/singletons/split individuals).");
+
+        foreach (var element in solveElements)
         {
-            string cellsKey = GenerateCoordinateKey(element.GetAllCoveredCells());
-            if (elementCellsToId.TryGetValue(cellsKey, out var existing))
+            if (element.VariableId <= 0)
             {
-                Debug.WriteLine($"Warning: Found duplicate solve elements covering same cells. VarIDs: {element.VariableId} and {existing.Id}");
-                solveElements.Remove(element); // Remove duplicate element
-                if (variableToObjectMap.ContainsKey(element.VariableId))
-                {
-                    variableToObjectMap.Remove(element.VariableId);
-                }
+                Debug.WriteLine($"CRITICAL ERROR: Element found in solveElements without a valid VariableId! Type: {element.GetType().Name}");
+                // This might indicate a Placement added directly without getting an ID assigned,
+                // or a SymmetryGroup constructor issue.
             }
-            else
+            // Also check mapping consistency
+            if (!variableToObjectMap.ContainsKey(element.VariableId))
             {
-                elementCellsToId[cellsKey] = (element, element.VariableId);
+                Debug.WriteLine($"CRITICAL ERROR: Element {element.VariableId} in solveElements but not in variableToObjectMap!");
             }
         }
+        if (solveElements.Count != variableToObjectMap.Count)
+        {
+            Debug.WriteLine($"CRITICAL ERROR: Mismatch between solveElements count ({solveElements.Count}) and variableToObjectMap count ({variableToObjectMap.Count})");
+        }
 
-        Debug.WriteLine($"Grouping resulted in {solveElements.Count} elements (valid groups/singletons/split individuals).");
         return solveElements;
     }
 
@@ -845,4 +1007,39 @@ public class SolverService
         // (Handles cases where input might contain only 0s, though shape areas should be > 0)
         return Math.Max(1, result);
     }
+
+    private bool TryGetCellTypeForElementAt(ISolveElement element, int r, int c, out CellTypeInfo? cellType)
+    {
+        cellType = null;
+        // An element might cover (r,c) via any of its constituent placements
+        foreach (var placement in element.GetPlacements())
+        {
+            // Calculate relative coordinates within this placement's grid
+            int pr = r - placement.Row;
+            int pc = c - placement.Col;
+            int pHeight = placement.Grid.GetLength(0);
+            int pWidth = placement.Grid.GetLength(1);
+
+            // Check if (r,c) falls within the bounds of this placement's grid
+            if (pr >= 0 && pr < pHeight && pc >= 0 && pc < pWidth)
+            {
+                var currentCellType = placement.Grid[pr, pc];
+                // Crucially, check if the cell type at this relative position is non-empty
+                if (!currentCellType.IsEmpty)
+                {
+                    // This placement contributes the non-empty cell type at (r,c)
+                    cellType = currentCellType;
+                    return true; // Found the relevant type
+                }
+                // If it's empty here, this placement doesn't define the type at (r,c),
+                // continue checking other placements within the element (if it's a group)
+            }
+        }
+        // If no placement within the element provided a non-empty cell at (r,c),
+        // then this element doesn't actually define the type there, even if (r,c)
+        // might be listed in GetAllCoveredCells (e.g., if GetAllCoveredCells had a bug)
+        // Or, more likely, (r,c) wasn't actually covered by this element.
+        return false;
+    }
+
 }
