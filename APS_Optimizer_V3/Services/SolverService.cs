@@ -800,57 +800,66 @@ public class SolverService
 
                 foreach (var (r, c) in allCellsInGroup)
                 {
-                    var placementsCoveringCell = new List<Placement>();
-                    // *** Refined logic: Collect NON-EMPTY types at the cell ***
+                    // Find all non-empty contributions to this cell from placements in the group
                     var nonEmptiesAtCell = new List<(Placement p, CellTypeInfo type)>();
-
                     foreach (var p in currentGroupPlacements)
                     {
-                        // Check if placement p actually covers (r, c)
                         int pr = r - p.Row;
                         int pc = c - p.Col;
                         if (pr >= 0 && pr < p.Grid.GetLength(0) && pc >= 0 && pc < p.Grid.GetLength(1))
                         {
                             CellTypeInfo type = p.Grid[pr, pc];
-                            if (!type.IsEmpty) // *** Check if the type is NOT Empty ***
+                            if (!type.IsEmpty)
                             {
-                                // Record the placement and its non-empty type contribution
                                 nonEmptiesAtCell.Add((p, type));
-                                // Add to the original list just for debugging message later if needed
-                                placementsCoveringCell.Add(p);
                             }
-                            // Implicitly ignore overlaps where one or both contributions are Empty
                         }
                     }
 
-                    // If 0 or 1 NON-EMPTY placements cover this cell, there's no conflict *at this cell*
-                    if (nonEmptiesAtCell.Count <= 1) continue;
+                    if (nonEmptiesAtCell.Count <= 1) continue; // No conflict possible with <= 1 non-empty contributor
 
-                    // Now, check for conflicts *only among the non-empty* placements covering this cell
-                    var typeNamesAtCell = new HashSet<string>();
-                    bool hardConflictAmongNonEmpty = false;
-
-                    foreach (var (_, type) in nonEmptiesAtCell) // Iterate through the non-empty types found
+                    // --- Identify UNIQUE CellTypeInfos at this cell ---
+                    // We only care about the distinct types present, ignoring duplicate identical contributions.
+                    // Use a HashSet based on Name and CurrentRotation for uniqueness.
+                    var uniqueTypesAtCell = new HashSet<CellTypeInfo>(new CellTypeInfoComparer()); // Need a comparer
+                    foreach (var (_, type) in nonEmptiesAtCell)
                     {
-                        typeNamesAtCell.Add(type.Name);
-                        if (!type.CanSelfIntersect)
+                        uniqueTypesAtCell.Add(type);
+                    }
+
+                    // If only one UNIQUE type is present (even if multiple placements contribute it), no conflict AT THIS CELL.
+                    if (uniqueTypesAtCell.Count <= 1) continue;
+
+                    // --- Now check for conflicts among the UNIQUE types ---
+                    bool hardConflictAmongUnique = false;
+                    var uniqueTypeNames = new HashSet<string>();
+
+                    foreach (var uniqueType in uniqueTypesAtCell)
+                    {
+                        uniqueTypeNames.Add(uniqueType.Name);
+                        if (!uniqueType.CanSelfIntersect)
                         {
-                            hardConflictAmongNonEmpty = true; // Found a non-intersecting type among the non-empty ones
+                            // If ANY unique type here is non-intersecting, it's a conflict
+                            // because we already know there's more than one unique type present.
+                            hardConflictAmongUnique = true;
+                            break; // Found a non-intersecting type among multiple unique types
                         }
                     }
 
-                    // Check conflict conditions for this cell (among non-empty contributors)
-                    // Conflict exists if a non-intersecting type is present OR if multiple different self-intersecting types are present
-                    if (hardConflictAmongNonEmpty || typeNamesAtCell.Count > 1)
+                    // Check conflict conditions for this cell based on UNIQUE types
+                    // Conflict exists if a non-intersecting type was found OR if multiple different self-intersecting type names exist.
+                    if (hardConflictAmongUnique || uniqueTypeNames.Count > 1)
                     {
                         isInternallyConsistent = false;
-                        // Updated Debug Message: refer to non-empty contributors
-                        Debug.WriteLine($"Symmetry Group Inconsistency Detected at cell ({r},{c}): Hard conflict or multiple types among non-empty contributors. Group originating from {seedPlacement.PlacementId}. Placements involved: {string.Join(", ", placementsCoveringCell.Select(p => p.PlacementId))}");
+                        var involvedPlacementIds = nonEmptiesAtCell.Select(pair => pair.p.PlacementId).Distinct();
+                        Debug.WriteLine($"Symmetry Group Inconsistency Detected at cell ({r},{c}): Conflict among unique non-empty types. Group originating from {seedPlacement.PlacementId}. Involved Placements: {string.Join(", ", involvedPlacementIds)} Unique Types: {string.Join(", ", uniqueTypesAtCell.Select(t => $"{t.Name}/{t.CurrentRotation}"))}");
                         break; // Found inconsistency, no need to check other cells
                     }
-                    // else: All NON-EMPTY placements covering this cell are the same self-intersecting type - ok for this cell.
+                    // else: All unique non-empty types covering this cell are the *same* self-intersecting type - ok for this cell.
+
                 } // End foreach cell in group
             } // End if currentGroupPlacements.Count > 1
+
 
             // --- Add elements based on consistency ---
             if (isInternallyConsistent)
