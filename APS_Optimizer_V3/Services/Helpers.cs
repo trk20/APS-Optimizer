@@ -1,5 +1,5 @@
 using APS_Optimizer_V3.Helpers;
-using APS_Optimizer_V3.ViewModels; // For ImmutableList if needed
+using APS_Optimizer_V3.ViewModels;
 
 namespace APS_Optimizer_V3.Services;
 
@@ -10,7 +10,6 @@ public class VariableManager
 {
     private int _nextVariable = 1;
     public int GetNextVariable() => _nextVariable++;
-    // Renamed for clarity - returns the highest ID assigned so far.
     public int GetMaxVariableId() => _nextVariable - 1;
 }
 
@@ -28,19 +27,18 @@ public record SolveParameters(
 public record SolverResult(
     bool Success,
     string Message, // Error or success message
-    int RequiredCells, // The number of cells required for the successful solution
-    ImmutableList<Placement>? SolutionPlacements, // The list of placements in the solution
+    int RequiredCells, // Number of cells required for the successful solution
+    ImmutableList<Placement>? SolutionPlacements, // List of placements in the solution
     ImmutableList<SolverIterationLog>? IterationLogs
 );
 
 public enum SymmetryType
 {
-    None, // Added for completeness
-    ReflectHorizontal, // Reflection across horizontal center line
-    ReflectVertical,   // Reflection across vertical center line
-    Rotate90,          // Clockwise 90-degree rotation around center
-    Rotate180          // 180-degree rotation around center
-    // Potentially add Rotate270 if needed, though often covered by other symmetries/rotations
+    None,
+    ReflectHorizontal,
+    ReflectVertical,
+    Rotate90,
+    Rotate180
 }
 
 public record SolverIterationLog(

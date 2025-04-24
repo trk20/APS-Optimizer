@@ -12,7 +12,7 @@
             </ResourceDictionary.MergedDictionaries>
             <!-- Add resources here -->
             <converters:BooleanToVisibilityConverter x:Key="BoolToVis" />
-            <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
+            <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

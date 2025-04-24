@@ -11,6 +11,6 @@ public class InverseBooleanToVisibilityConverter : IValueConverter
 
     public object ConvertBack(object value, Type targetType, object parameter, string language)
     {
-        return (value is Visibility v && v == Visibility.Collapsed);
+        return value is Visibility v && v == Visibility.Collapsed;
     }
 }

@@ -2,21 +2,16 @@
 using Microsoft.UI;
 using System.Diagnostics;
 using APS_Optimizer_V3.Helpers;
-using APS_Optimizer_V3.Services;
-using Microsoft.UI.Xaml.Shapes;
 using Windows.Foundation;
 using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace APS_Optimizer_V3.ViewModels;
-// Add ShapePreview state
-
 
 public partial class CellViewModel : ObservableObject
 {
     // --- Static Colors/Brushes ---
     private static readonly Brush DefaultEmptyBackground = new SolidColorBrush(Colors.White);
     private static readonly Brush DefaultShapeBackground = new SolidColorBrush(Colors.DarkCyan);
-    private static readonly Brush DefaultBlockedBackground = new SolidColorBrush(Colors.DarkGray);
     private static readonly Brush BlackBackground = new SolidColorBrush(Colors.Black);
 
     [ObservableProperty] private int _row;
@@ -29,10 +24,8 @@ public partial class CellViewModel : ObservableObject
     private CellTypeInfo _displayedCellType = CellTypeInfo.EmptyCellType;
 
     [ObservableProperty] private Brush _background = DefaultEmptyBackground;
-    // CellIconElement is the UIElement (e.g., Viewbox with Image) to be displayed
     [ObservableProperty] private UIElement? _cellIconElement = null;
 
-    // --- Constructors ---
     public CellViewModel(int row, int col, Action<CellViewModel>? onClickAction, CellTypeInfo? type)
     {
         Row = row;
@@ -64,7 +57,7 @@ public partial class CellViewModel : ObservableObject
         Background = DisplayedCellType.IsEmpty ? DefaultEmptyBackground : (DisplayedCellType.Name == CellTypeInfo.BlockedCellType.Name ? BlackBackground : DefaultShapeBackground);
     }
 
-    // Creates the visual element for the icon (Image inside a Viewbox)
+    // Creates the visual element for the icon
     private void CreateIconElement()
     {
         CellIconElement = null; // Reset
@@ -80,7 +73,6 @@ public partial class CellViewModel : ObservableObject
             var iconUri = new Uri($"ms-appx:///Assets/{DisplayedCellType.IconPath}");
             //Debug.WriteLine($"CellVM ({Row},{Col}): Icon URI: {iconUri}");
 
-            // Use BitmapImage since we switched to PNGs
             var bitmapImage = new BitmapImage(iconUri);
             //bitmapImage.ImageOpened += (s, e) => Debug.WriteLine($"CellVM ({Row},{Col}): PNG Image opened for {iconUri}");
             bitmapImage.ImageFailed += (s, e) => Debug.WriteLine($"CellVM ({Row},{Col}): PNG Image FAILED to open for {iconUri}. Error: {e.ErrorMessage}");
@@ -100,8 +92,6 @@ public partial class CellViewModel : ObservableObject
                 //Debug.WriteLine($"CellVM ({Row},{Col}): Applied rotation {rotateTransform.Angle} deg");
             }
 
-            // *** Return the Viewbox containing the Image ***
-            // The Button or Border in the DataTemplate will be the container
             var viewbox = new Viewbox
             {
                 Child = image,
@@ -110,13 +100,12 @@ public partial class CellViewModel : ObservableObject
                 VerticalAlignment = VerticalAlignment.Stretch
             };
 
-            CellIconElement = viewbox; // Assign the Viewbox
+            CellIconElement = viewbox;
             //Debug.WriteLine($"CellVM ({Row},{Col}): Successfully created and assigned CellIconElement (Viewbox).");
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"CellVM ({Row},{Col}): ***** ERROR creating icon Viewbox for {DisplayedCellType.Name} ({DisplayedCellType.IconPath}): {ex.Message}");
-            // CellIconElement remains null
         }
     }
 
@@ -129,7 +118,7 @@ public partial class CellViewModel : ObservableObject
     {
         if (_onClickAction != null) return;
         Background = placementColor;
-        // Re-create the icon element (if applicable)
+        // Re-create the icon element 
         if (!DisplayedCellType.IsEmpty && DisplayedCellType != CellTypeInfo.BlockedCellType && !string.IsNullOrEmpty(DisplayedCellType.IconPath))
         {
             CreateIconElement();

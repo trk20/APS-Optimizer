@@ -64,12 +64,11 @@ public class ShapeInfo
                         RotationDirection.West => RotationDirection.North,
                         _ => originalType.CurrentRotation // Should not happen
                     };
-                    // Use FacingDirection to get a NEW instance with the updated rotation
+                    // Use FacingDirection to get new instance with updated rotation
                     rotatedType = originalType.FacingDirection(nextRotation);
                 }
                 else
                 {
-                    // If not rotatable, ensure we still place a valid object (clone if necessary, FacingDirection handles this)
                     rotatedType = originalType.FacingDirection(originalType.CurrentRotation);
                 }
 
@@ -92,26 +91,20 @@ public class ShapeInfo
             return;
         }
 
-        // --- Simplified Uniqueness Check (Based on Non-Empty Cell Positions) ---
-        // This doesn't distinguish shapes with same outline but different internal types.
-        // A more robust signature would involve encoding the CellType values.
         HashSet<string> uniquePositionSignatures = new HashSet<string>();
-        // ---
 
         CellTypeInfo[,] current = baseShape;
-        for (int i = 0; i < 4; i++) // Generate up to 4 rotations
+        for (int i = 0; i < 4; i++)
         {
-            // --- Simplified Signature ---
             string signature = GetPositionSignature(current);
             if (uniquePositionSignatures.Add(signature))
             {
                 _rotations.Add((CellTypeInfo[,])current.Clone());
             }
-            // ---
 
-            current = ShapeInfo.RotateMatrix(current);
+            current = RotateMatrix(current);
         }
-        Debug.WriteLine($"Generated {_rotations.Count} unique rotations (based on outline) for {Name}.");
+        //Debug.WriteLine($"Generated {_rotations.Count} unique rotations (based on outline) for {Name}.");
     }
 
     private string GetPositionSignature(CellTypeInfo[,] matrix)

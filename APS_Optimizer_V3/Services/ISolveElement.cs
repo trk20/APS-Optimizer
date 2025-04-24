@@ -4,22 +4,13 @@ namespace APS_Optimizer_V3.Services;
 
 public interface ISolveElement
 {
-    /// <summary>
-    /// The unique CNF variable ID assigned to this element.
-    /// </summary>
+    // Unique CNF variable ID assigned to this element
     int VariableId { get; }
 
-    /// <summary>
-    /// Gets all unique grid cells covered by any placement within this element.
-    /// </summary>
-    /// <returns>An enumerable collection of (row, column) tuples.</returns>
+    // Gets all unique grid cells covered by any placement within this element
     IEnumerable<(int r, int c)> GetAllCoveredCells();
 
-    /// <summary>
-    /// Gets all the underlying Placement objects represented by this element.
-    /// For a single Placement element, this contains only itself.
-    /// For a SymmetryGroup, this contains all placements in the group.
-    /// </summary>
+    /// Gets all underlying Placement objects represented by this element
     IEnumerable<Placement> GetPlacements();
 }
 
@@ -32,23 +23,22 @@ public record Placement(
     int Col,
     CellTypeInfo[,] Grid,
     ImmutableList<(int r, int c)> CoveredCells
-) : ISolveElement // Implement the interface
+) : ISolveElement
 {
-    // VariableId will be assigned externally after grouping
-    public int VariableId { get; internal set; } = -1; // Default to invalid
+    // VariableId assigned externally after grouping
+    public int VariableId { get; internal set; } = -1;
 
     public IEnumerable<(int r, int c)> GetAllCoveredCells() => CoveredCells;
 
     public IEnumerable<Placement> GetPlacements() => new[] { this };
 }
 
-public record SymmetryGroup : ISolveElement // Implement the interface
+public record SymmetryGroup : ISolveElement
 {
-    public int VariableId { get; } // Use the assigned CNF variable ID as the GroupId
+    public int VariableId { get; } // Use assigned CNF variable ID as GroupId
     public ImmutableList<Placement> Placements { get; }
     private readonly Lazy<ImmutableHashSet<(int r, int c)>> _allCoveredCellsLazy;
 
-    // Constructor to initialize all fields
     public SymmetryGroup(int variableId, ImmutableList<Placement> placements)
     {
         VariableId = variableId;

@@ -2,8 +2,8 @@ namespace APS_Optimizer_V3.Services;
 
 public static class SequentialCounter
 {
-    // Encodes the constraint that at most 'k' variables in the list can be true.
-    // Returns the list of CNF clauses and the number of auxiliary variables used.
+    // Encodes constraint that at most 'k' variables in the list can be true
+    // Returns list of CNF clauses and the number of auxiliary variables used
     public static (List<List<int>> clauses, int auxVarCount) EncodeAtMostK(
         List<int> variables, int k, VariableManager varManager)
     {
@@ -36,17 +36,17 @@ public static class SequentialCounter
         }
 
         // Base case: i = 0
-        clauses.Add(new List<int> { -variables[0], s[0, 0] });       // -x_0 OR s_0,0
+        clauses.Add(new List<int> { -variables[0], s[0, 0] }); // -x_0 OR s_0,0
         for (int j = 1; j < k; j++)
         {
-            clauses.Add(new List<int> { -s[0, j] });                 // -s_0,j
+            clauses.Add(new List<int> { -s[0, j] }); // -s_0,j
         }
 
         // Recursive step: 0 < i < n
         for (int i = 1; i < n; i++)
         {
-            clauses.Add(new List<int> { -variables[i], s[i, 0] });   // -x_i OR s_i,0
-            clauses.Add(new List<int> { -s[i - 1, 0], s[i, 0] });    // -s_{i-1},0 OR s_i,0
+            clauses.Add(new List<int> { -variables[i], s[i, 0] }); // -x_i OR s_i,0
+            clauses.Add(new List<int> { -s[i - 1, 0], s[i, 0] }); // -s_{i-1},0 OR s_i,0
 
             for (int j = 1; j < k; j++)
             {
@@ -62,7 +62,7 @@ public static class SequentialCounter
         return (clauses, auxVarsUsed);
     }
 
-    // Encodes the constraint that at least 'k' variables in the list must be true.
+    // Encodes constraint at least 'k' variables in list must be true.
     public static (List<List<int>> clauses, int auxVarCount) EncodeAtLeastK(
         List<int> variables, int k, VariableManager varManager)
     {
@@ -83,7 +83,7 @@ public static class SequentialCounter
         {
             foreach (int x_i in variables)
             {
-                clauses.Add(new List<int> { x_i });     // x_i 0
+                clauses.Add(new List<int> { x_i }); // x_i 0
             }
             return (clauses, 0); // All must be true
         }
@@ -107,7 +107,7 @@ public static class SequentialCounter
         var (atMostClauses, atMostAuxVars) = EncodeAtMostK(tempNegatedVars, n - k, varManager);
         totalAuxVars += atMostAuxVars;
 
-        // Combine the clauses
+        // Combine clauses
         clauses.AddRange(negationClauses);
         clauses.AddRange(atMostClauses);
 

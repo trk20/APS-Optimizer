@@ -12,7 +12,7 @@ public class EnumToBooleanConverter : IValueConverter
         if (string.IsNullOrWhiteSpace(parameterString))
             return DependencyProperty.UnsetValue;
 
-        // Check if the value matches the parameter (case-insensitive enum parsing)
+        // Check if the value matches parameter
         if (Enum.TryParse(value.GetType(), parameterString, true, out object? parameterValue))
         {
             return value.Equals(parameterValue);

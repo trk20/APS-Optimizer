@@ -53,7 +53,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         _ => SelectedSymmetryType.None
     };
 
-    private string _selectedTemplate = "Circle (Center Hole)";
+    private string _selectedTemplate = "Circle (No Hole)";
     public string SelectedTemplate
     {
         get => _selectedTemplate;
@@ -87,8 +87,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         set => SetProperty(ref _useSoftSymmetry, value); // Use SetProperty from base
     }
 
-    private int _gridWidth = 21;
-    private int _gridHeight = 21;
+    private int _gridWidth = 11;
+    private int _gridHeight = 11;
 
     public int GridWidth
     {
@@ -133,7 +133,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private double _cellSpacing = 0.0; // Updated default based on XAML resource
 
-    public const double PreviewCellSize = 15.0;
+    public const double PreviewCellSize = 20.0;
     public const double PreviewCellSpacing = 1.0;
 
 
@@ -149,6 +149,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         get
         {
+
+            Debug.WriteLine($"Calculating MaxPreviewColumnWidth for {AvailableShapes.Count} shapes.");
             if (!AvailableShapes.Any()) return PreviewCellSize * 4;
             int maxDimension = AvailableShapes
                 .SelectMany(s => s.GetAllRotationGrids())
@@ -424,7 +426,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
         catch (OperationCanceledException)
         {
-            Debug.WriteLine($"GridWidth update debounced/cancelled for value: {newValue}");
+            //Debug.WriteLine($"GridWidth update debounced/cancelled for value: {newValue}");
             // Expected when a new value comes in quickly
         }
         catch (Exception ex)
@@ -445,47 +447,18 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             await Task.Delay(DebounceDelayMilliseconds, token);
             if (token.IsCancellationRequested) return; // Check if cancelled
             // If not cancelled, proceed with the actual update logic
-            Debug.WriteLine($"--> Debounced OnGridHeightChanged executing for value: {newValue}");
+            //Debug.WriteLine($"--> Debounced OnGridHeightChanged executing for value: {newValue}");
             RebuildGrids(SelectedTemplate);
-            Debug.WriteLine($"<-- Debounced OnGridHeightChanged END");
+            //Debug.WriteLine($"<-- Debounced OnGridHeightChanged END");
         }
         catch (OperationCanceledException)
         {
-            Debug.WriteLine($"GridHeight update debounced/cancelled for value: {newValue}");
+            //Debug.WriteLine($"GridHeight update debounced/cancelled for value: {newValue}");
             // Expected when a new value comes in quickly
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Error during debounced GridHeight update: {ex}");
-        }
-    }
-
-
-    [RelayCommand]
-    public async Task ShowAddShapeDialog()
-    {
-        var xamlRoot = GetXamlRoot(); if (xamlRoot == null) return;
-
-        var editorViewModel = new ShapeEditorViewModel(); // Assuming this exists and works with CellTypeInfo
-        var dialog = new ShapeEditorDialog { DataContext = editorViewModel, XamlRoot = xamlRoot }; // Assuming ShapeEditorDialog exists
-
-        var result = await dialog.ShowAsync();
-
-        if (result == ContentDialogResult.Primary)
-        {
-            string newName = editorViewModel.ShapeName;
-            CellTypeInfo[,] newPattern = editorViewModel.GetCurrentPattern(); // Assumes this returns CellTypeInfo[,]
-
-            if (newPattern != null && newPattern.Length > 0)
-            {
-                var newShapeViewModel = new ShapeViewModel(new ShapeInfo(newName, newPattern));
-                AvailableShapes.Add(newShapeViewModel); // Triggers CollectionChanged
-                Debug.WriteLine($"Added new shape: {newName}");
-            }
-            else
-            {
-                Debug.WriteLine("Add shape cancelled or pattern empty.");
-            }
         }
     }
 
@@ -517,46 +490,13 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
-    public void UpdateResultGridCells()
-    {
-        foreach (var resultCell in ResultGridCells)
-        {
-            UpdateResultGridCell(resultCell);
-        }
-    }
-
-    // *** CHANGE: Handle CellType[,] from dialog ***
-    public async Task ShowEditShapeDialog(ShapeViewModel shapeToEdit, XamlRoot xamlRoot)
-    {
-        /*
-        if (shapeToEdit == null || xamlRoot == null) return;
-        var editorViewModel = new ShapeEditorViewModel(shapeToEdit); // Editor loads CellType[,]
-        var dialog = new ShapeEditorDialog { DataContext = editorViewModel, XamlRoot = xamlRoot };
-        var result = await dialog.ShowAsync();
-        if (result == ContentDialogResult.Primary)
-        {
-            string editedName = editorViewModel.ShapeName;
-            // *** GET CellType[,] pattern ***
-            CellTypeInfo[,] editedPattern = editorViewModel.GetCurrentPattern();
-            if (editedPattern.Length > 0)
-            {
-                // *** UPDATE ShapeViewModel with CellType[,] ***
-                shapeToEdit.UpdateShapeData(editedName, editedPattern);
-                Debug.WriteLine($"Updated shape: {editedName}");
-                OnPropertyChanged(nameof(MaxPreviewColumnWidth));
-                UpdateSharedRotationTimerState();
-            }
-            else { }
-        }
-        else { }*/
-    }
 
     private bool CanSolve() => !IsSolving;
 
     [RelayCommand(CanExecute = nameof(CanSolve))]
     public async Task Solve()
     {
-        if (!CanSolve()) return; // Redundant check, but safe
+        if (!CanSolve()) return;
 
         foreach (var resultCell in ResultGridCells)
         {
@@ -578,7 +518,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         SolverResult result = new SolverResult(false, "Initialization failed", 0, null, null);
         try
         {
-            // Get blocked cells from the *editor* grid state
+            // Get blocked cells from the editor grid state
             var blockedCells = GridEditorCells
                             .Where(c => c.DisplayedCellType.Name == CellTypeInfo.BlockedCellType.Name)
                             .Select(c => (c.Row, c.Col))
@@ -586,22 +526,21 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
 
             var enabledShapes = AvailableShapes
-                            .Where(s => s.IsEnabled && s.Shape != null) // Ensure shape exists
-                            .Select(vm => vm.Shape) // Pass the ShapeInfo
+                            .Where(s => s.IsEnabled && s.Shape != null) // Check shape exists
+                            .Select(vm => vm.Shape) // Pass ShapeInfo
                             .ToImmutableList();
 
             if (!enabledShapes.Any())
             {
                 result = new SolverResult(false, "No shapes enabled or available.", 0, null, null);
-                // Use finally block for cleanup
             }
             else
             {
                 var parameters = new SolveParameters(GridWidth, GridHeight, blockedCells, enabledShapes, SelectedSymmetryType, UseSoftSymmetry);
 
-                Debug.WriteLine($"Calling SolverService.SolveAsync with {enabledShapes.Count} shapes and {blockedCells.Count} blocked cells...");
+                //Debug.WriteLine($"Calling SolverService.SolveAsync with {enabledShapes.Count} shapes and {blockedCells.Count} blocked cells...");
                 result = await _solverService.SolveAsync(parameters);
-                Debug.WriteLine($"Solver finished. Success: {result.Success}, Message: {result.Message}, Placements: {result.SolutionPlacements?.Count ?? 0}");
+                //Debug.WriteLine($"Solver finished. Success: {result.Success}, Message: {result.Message}, Placements: {result.SolutionPlacements?.Count ?? 0}");
                 _lastSolverLogs = result.IterationLogs; // Store logs regardless of success
             }
         }
@@ -637,7 +576,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             IsSolving = false;
             _stopwatchTimer = null;
             _solveStopwatch = null;
-            Debug.WriteLine("Solve command finished.");
+            //Debug.WriteLine("Solve command finished.");
         }
     }
 
@@ -655,7 +594,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             Debug.WriteLine("DisplaySolution called with null or empty placements.");
             return;
         }
-        Debug.WriteLine($"DisplaySolution started for {solutionPlacements.Count} placements.");
+        //Debug.WriteLine($"DisplaySolution started for {solutionPlacements.Count} placements.");
 
         // Palette for coloring shape instances distinctly
         var colorPalette = new List<Color> {
@@ -664,20 +603,20 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             Colors.Gray, Colors.Brown, Colors.Chartreuse, Colors.OrangeRed, Colors.DarkMagenta,
             Colors.LightSeaGreen, Colors.MediumTurquoise, Colors.MidnightBlue, Colors.OliveDrab, Colors.PaleVioletRed
         };
-        var random = new Random(); // Fallback if palette runs out
+        var random = new Random();
 
         // Keep track of colors assigned to each unique placement ID from the solver
         var placementInstanceColors = new Dictionary<int, Brush>();
         // --- Apply Placements to Result Grid ---
         foreach (var placement in solutionPlacements)
         {
-            if (placement == null || placement.Grid == null || placement.CoveredCells == null) { /* Skip */ continue; }
+            if (placement == null || placement.Grid == null || placement.CoveredCells == null) { continue; }
 
             Brush? currentBrush;
             if (!placementInstanceColors.TryGetValue(placement.PlacementId, out currentBrush))
             {
-                // *** FIX: Use modulo operator for color cycling ***
-                // Assign color based on the number of *unique* placements found so far
+                // Use modulo operator for color cycling
+                // Assign color based on the number of unique placements
                 int colorIndexToUse = placementInstanceColors.Count % colorPalette.Count;
                 Color selectedColor = colorPalette[colorIndexToUse];
                 currentBrush = new SolidColorBrush(selectedColor);
@@ -696,12 +635,16 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 var cellViewModel = ResultGridCells.FirstOrDefault(cell => cell.Row == r && cell.Col == c);
                 if (cellViewModel != null)
                 {
+                    if (cellViewModel.DisplayedCellType.Name != CellTypeInfo.EmptyCellType.Name && cellViewModel.DisplayedCellType.Name != CellTypeInfo.BlockedCellType.Name)
+                    {
+                        Debug.WriteLine($"WARNING: Overwriting placement at ({r},{c})");
+                    }
                     // Calculate the relative position within the shape's grid
                     int relativeRow = r - placement.Row;
                     int relativeCol = c - placement.Col;
 
                     // Get the CellTypeInfo from the placed shape's grid rotation
-                    CellTypeInfo placedType = CellTypeInfo.GenericCellType; // Default fallback
+                    CellTypeInfo placedType = CellTypeInfo.GenericCellType;
                     if (relativeRow >= 0 && relativeRow < gridRows && relativeCol >= 0 && relativeCol < gridCols)
                     {
                         placedType = shapeGrid[relativeRow, relativeCol];
@@ -709,75 +652,26 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                     else
                     {
                         Debug.WriteLine($"Warning: Cell ({r},{c}) is covered but outside the bounds of placed shape grid [{gridRows}x{gridCols}] at ({placement.Row},{placement.Col}). Relative ({relativeRow},{relativeCol}).");
-                        // Decide how to handle this - skip, use generic, etc. Using GenericCellType for now.
                     }
 
-                    // *** IMPORTANT ORDER ***
-                    // 1. Set the Type: This triggers the CellViewModel's PropertyChanged, which calls UpdateVisuals
-                    //    UpdateVisuals sets the default background and potentially creates a default icon (if not empty/blocked)
                     cellViewModel.DisplayedCellType = placedType ?? CellTypeInfo.EmptyCellType; // Ensure not null
 
-                    // 2. Set the Placement Color: This overrides the background and regenerates the icon element
-                    //    on top of the new background.
                     cellViewModel.SetResultPlacement(currentBrush);
-
-                    // Optional: Add DisplayNumber logic back if needed
-                    // cellViewModel.DisplayNumber = placementDisplayNumber;
                 }
                 else
                 {
                     Debug.WriteLine($"Warning: Could not find ResultGridCell ViewModel for ({r},{c}).");
                 }
             }
-        } // End foreach placement
+        }
 
         int totalUniquePlacements = placementInstanceColors.Count;
-        Debug.WriteLine($"Displayed {totalUniquePlacements} unique placements on the result grid.");
+        //Debug.WriteLine($"Displayed {totalUniquePlacements} unique placements on the result grid.");
     }
-
-
-
-    public async Task RequestRemoveShape(ShapeViewModel shapeToRemove, XamlRoot xamlRoot)
-    {
-        if (shapeToRemove == null || xamlRoot == null)
-        {
-            Debug.WriteLine($"Error: RequestRemoveShape called with null arguments.");
-            return;
-        }
-
-        var confirmDialog = new ContentDialog
-        {
-            Title = "Confirm Removal",
-            Content = $"Are you sure you want to remove the shape '{shapeToRemove.Name}'?",
-            PrimaryButtonText = "Remove",
-            CloseButtonText = "Cancel",
-            DefaultButton = ContentDialogButton.Close,
-            XamlRoot = xamlRoot
-        };
-
-        var result = await confirmDialog.ShowAsync();
-
-        if (result == ContentDialogResult.Primary)
-        {
-            // Remove from collection. CollectionChanged handler deals with unsubscribing and timer updates.
-            bool removed = AvailableShapes.Remove(shapeToRemove);
-            if (removed)
-            {
-                Debug.WriteLine($"Removed shape: {shapeToRemove.Name}");
-            }
-            else
-            {
-                Debug.WriteLine($"Failed to remove shape: {shapeToRemove.Name} (not found in collection).");
-            }
-        }
-        else { Debug.WriteLine($"Removal cancelled for shape: {shapeToRemove.Name}"); }
-    }
-
 
     // --- Shared Timer Logic ---
     private void UpdateSharedRotationTimerState()
     {
-        // Condition: Are there any shapes that are enabled AND can rotate?
         bool shouldTimerRun = AvailableShapes.Any(s => s.IsEnabled && s.CanRotate());
 
         if (shouldTimerRun)
@@ -792,18 +686,16 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 _sharedRotationTimer.Tick += SharedRotationTimer_Tick;
                 _sharedRotationTimer.Start();
             }
-            // else: Timer is already running, do nothing
         }
-        else // Timer should not run
+        else
         {
             if (_sharedRotationTimer != null)
             {
                 Debug.WriteLine("Stopping shared rotation timer.");
                 _sharedRotationTimer.Stop();
-                _sharedRotationTimer.Tick -= SharedRotationTimer_Tick; // Unsubscribe
-                _sharedRotationTimer = null; // Release the timer object
+                _sharedRotationTimer.Tick -= SharedRotationTimer_Tick;
+                _sharedRotationTimer = null;
             }
-            // else: Timer is already stopped or null, do nothing
         }
     }
 
@@ -818,7 +710,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             {
                 Debug.WriteLine("Disposing MainViewModel");
 
-                // Stop and clean up the shared timer
                 if (_sharedRotationTimer != null)
                 {
                     _sharedRotationTimer.Stop();
@@ -826,10 +717,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                     _sharedRotationTimer = null;
                 }
 
-                // Unsubscribe from collection changed
                 AvailableShapes.CollectionChanged -= AvailableShapes_CollectionChanged;
 
-                // Unsubscribe from individual shape events and dispose them
                 foreach (var shape in AvailableShapes)
                 {
                     shape.IsEnabledChanged -= ShapeViewModel_IsEnabledChanged;
@@ -843,12 +732,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
     }
     public void Dispose() { Dispose(disposing: true); GC.SuppressFinalize(this); }
-
-    private XamlRoot? GetXamlRoot()
-    {
-        // Try to get XamlRoot from the main window content
-        return ((App)Application.Current)?.MainWindow?.Content?.XamlRoot;
-    }
 
 }
 

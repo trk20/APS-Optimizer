@@ -1,5 +1,6 @@
 ﻿<!-- MainPage.xaml -->
 <Page x:Class="APS_Optimizer_V3.MainPage"
+      x:Name="MainPageRoot"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:local="using:APS_Optimizer_V3"
@@ -13,7 +14,6 @@
     <Page.DataContext>
         <viewmodels:MainViewModel x:Name="CustomViewModel" />
     </Page.DataContext>
-    <!-- converters moved to App.xaml for global access -->
     <Grid Padding="5">
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
@@ -27,8 +27,6 @@
             <ColumnDefinition Width="Auto" />
             <!-- Right Area (Shapes) -->
         </Grid.ColumnDefinitions>
-        <!-- === Left Side: Editor and Result Grids Side-by-Side === -->
-        <!-- Replace StackPanel with Grid -->
         <Grid Grid.Row="0"
               Grid.Column="0"
               ColumnSpacing="10">
@@ -38,7 +36,7 @@
                 <ColumnDefinition Width="*" />
                 <!-- Result Area -->
             </Grid.ColumnDefinitions>
-            <!-- Editor Grid Area -->
+            <!-- Editor Grid -->
             <StackPanel Grid.Column="0"
                         HorizontalAlignment="Center"
                         Spacing="5">
@@ -54,20 +52,16 @@
                             VerticalAlignment="Top"
                             Width="{Binding CalculatedGridTotalWidth, Mode=OneWay}"
                             Height="{Binding CalculatedGridTotalHeight, Mode=OneWay}">
-                        <!-- ScrollViewer might be needed if grid can exceed container -->
                         <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                                       VerticalScrollBarVisibility="Disabled">
-                            <!-- *** USE THE NEW CONTROL *** -->
                             <controls:CellGridControl ItemsSource="{Binding GridEditorCells, Mode=OneWay}"
                                                       CellSize="{Binding CellSize, Mode=OneWay}"
                                                       CellSpacing="{Binding CellSpacing, Mode=OneWay}"
                                                       IsEditorGrid="True"
                                                       DataContext="{Binding}" />
-                            <!-- Pass ViewModel's DataContext down -->
-                            <!-- Width/Height are determined by layout -->
                         </ScrollViewer>
                     </Border>
-                    <!-- Canvas for Symmetry Overlay (if needed) -->
+                    <!-- Canvas for Editor Symmetry Overlay -->
                     <Canvas x:Name="SymmetryOverlayCanvas"
                             Width="{Binding ActualWidth, ElementName=EditorGridBorder}"
                             Height="{Binding ActualHeight, ElementName=EditorGridBorder}"
@@ -118,29 +112,35 @@
                 <TextBlock Text="{Binding ResultTitle, Mode=OneWay}"
                            Style="{ThemeResource SubtitleTextBlockStyle}"
                            HorizontalAlignment="Center" />
-                <Border BorderBrush="Gray"
-                        BorderThickness="1"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Top"
-                        Width="{Binding CalculatedGridTotalWidth, Mode=OneWay}"
-                        Height="{Binding CalculatedGridTotalHeight, Mode=OneWay}">
-                    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
-                                  VerticalScrollBarVisibility="Disabled">
-                        <!-- *** USE THE NEW CONTROL *** -->
-                        <controls:CellGridControl ItemsSource="{Binding ResultGridCells, Mode=OneWay}"
-                                                  CellSize="{Binding CellSize, Mode=OneWay}"
-                                                  CellSpacing="{Binding CellSpacing, Mode=OneWay}"
-                                                  IsEditorGrid="False"
-                                                  DataContext="{Binding}" />
-                        <!-- Pass ViewModel's DataContext down -->
-                    </ScrollViewer>
-                </Border>
+                <Grid HorizontalAlignment="Center"
+                      VerticalAlignment="Top">
+                    <Border x:Name="ResultGridBorder"
+                            BorderBrush="Gray"
+                            BorderThickness="1"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Top"
+                            Width="{Binding CalculatedGridTotalWidth, Mode=OneWay}"
+                            Height="{Binding CalculatedGridTotalHeight, Mode=OneWay}">
+                        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Disabled">
+                            <controls:CellGridControl ItemsSource="{Binding ResultGridCells, Mode=OneWay}"
+                                                      CellSize="{Binding CellSize, Mode=OneWay}"
+                                                      CellSpacing="{Binding CellSpacing, Mode=OneWay}"
+                                                      IsEditorGrid="False"
+                                                      DataContext="{Binding}" />
+                        </ScrollViewer>
+                    </Border>
+                    <!-- Canvas for Result Symmetry Overlay -->
+                    <Canvas x:Name="ResultSymmetryOverlayCanvas"
+                            IsHitTestVisible="False"
+                            Width="{Binding ActualWidth, ElementName=ResultGridBorder}"
+                            Height="{Binding ActualHeight, ElementName=ResultGridBorder}" />
+                </Grid>
                 <Button Content="Export Result"
                         Command="{Binding ExportCommand}"
                         HorizontalAlignment="Center" />
             </StackPanel>
         </Grid>
-        <!-- Right Side: Shapes (ADD CONTEXT MENU) -->
         <StackPanel Grid.Row="0"
                     Grid.Column="1"
                     Spacing="10"
@@ -149,7 +149,7 @@
             <TextBlock Text="Shapes"
                        HorizontalAlignment="Center"
                        Style="{ThemeResource SubtitleTextBlockStyle}" />
-            <!-- ListView for Available Shapes -->
+            <!-- Available Shapes -->
             <ListView x:Name="ShapesListView"
                       ItemsSource="{Binding AvailableShapes}"
                       MaxHeight="600"
@@ -162,16 +162,13 @@
                         <Grid ColumnSpacing="15"
                               Margin="0,5">
                             <Grid.ColumnDefinitions>
-                                <!-- Use calculated MaxPreviewColumnWidth from MainViewModel for consistent preview sizing -->
-                                <ColumnDefinition MinWidth="{Binding DataContext.MaxPreviewColumnWidth, ElementName=ViewModel, Mode=OneWay}"
-                                                  MinHeight="{Binding DataContext.MaxPreviewColumnWidth, ElementName=ViewModel, Mode=OneWay}" />
+                                <ColumnDefinition Width="{Binding DataContext.MaxPreviewColumnWidth, ElementName=MainPageRoot, Mode=OneWay}" />
                                 <ColumnDefinition Width="*" />
                                 <!-- Controls Col -->
                             </Grid.ColumnDefinitions>
-                            <!-- Context Menu for Edit/Remove -->
-                            <Grid.ContextFlyout>
+                            <!-- Shape Context Menu: removed until I figure out shape editor -->
+                            <!-- <Grid.ContextFlyout>
                                 <MenuFlyout>
-                                    <!-- Use Command binding if preferred, or Click handlers -->
                                     <MenuFlyoutItem Text="Edit Shape"
                                                     Click="EditShapeMenuItem_Click"
                                                     CommandParameter="{Binding}" />
@@ -179,16 +176,19 @@
                                                     Click="RemoveShapeMenuItem_Click"
                                                     CommandParameter="{Binding}" />
                                 </MenuFlyout>
-                            </Grid.ContextFlyout>
+                            </Grid.ContextFlyout> -->
                             <!-- Shape Preview -->
                             <Border Grid.Column="0"
                                     BorderBrush="LightGray"
                                     BorderThickness="0"
                                     VerticalAlignment="Center"
                                     HorizontalAlignment="Center"
+                                    Width="{Binding DataContext.MaxPreviewColumnWidth, ElementName=MainPageRoot, Mode=OneWay}"
+                                    Height="{Binding DataContext.MaxPreviewColumnWidth, ElementName=MainPageRoot, Mode=OneWay}"
                                     Padding="0">
-                                <!-- ContentControl binds to the generated PreviewGrid UIElement -->
-                                <ContentControl Content="{Binding PreviewGrid, Mode=OneWay}" />
+                                <ContentControl Content="{Binding PreviewGrid, Mode=OneWay}"
+                                                VerticalAlignment="Center"
+                                                HorizontalAlignment="Center" />
                             </Border>
                             <!-- Shape Name and Controls -->
                             <StackPanel Grid.Column="1"
@@ -200,28 +200,23 @@
                                 <CheckBox Content="Enabled"
                                           IsChecked="{Binding IsEnabled, Mode=TwoWay}"
                                           VerticalAlignment="Center" />
-                                <!-- Add other info like Area if needed -->
-                                <!-- <TextBlock Text="{Binding Shape.Area, StringFormat='Area: {0}'}" FontSize="10"/> -->
                             </StackPanel>
                         </Grid>
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
-            <!-- Add Shape Button -->
-            <Button Content="Add Shape"
+            <!-- Add Shape Button: removed until I figure out how the shape editor should work -->
+            <!-- <Button Content="Add Shape"
                     HorizontalAlignment="Center"
-                    Command="{Binding ShowAddShapeDialogCommand}" />
+                    Command="{Binding ShowAddShapeDialogCommand}" /> -->
         </StackPanel>
-        <!-- ================================================= -->
-        <!-- Bottom: Controls (No Changes) -->
+        <!-- Bottom Controls -->
         <StackPanel Grid.Row="1"
                     Grid.Column="0"
                     Grid.ColumnSpan="2"
                     Orientation="Horizontal"
                     Spacing="5"
                     HorizontalAlignment="Stretch">
-            <!-- Use Spacing="10" or adjust per item -->
-            <!-- **** Add TextBlock, Remove Header from ComboBox **** -->
             <TextBlock Text="Grid Template:"
                        VerticalAlignment="Center"
                        Margin="0,0,5,0" />
@@ -239,7 +234,7 @@
                        Maximum="50"
                        SmallChange="2"
                        LargeChange="4"
-                       Width="100"
+                       Width="120"
                        Margin="0,0,15,0" />
             <TextBlock Text="Grid Height:"
                        VerticalAlignment="Center" />
@@ -249,7 +244,7 @@
                        Maximum="50"
                        SmallChange="2"
                        LargeChange="4"
-                       Width="100"
+                       Width="120"
                        Margin="0,0,15,0" />
         </StackPanel>
     </Grid>

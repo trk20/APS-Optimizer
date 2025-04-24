@@ -8,11 +8,6 @@
              xmlns:converters="using:APS_Optimizer_V3.Converters"
              mc:Ignorable="d"
              x:Name="RootGridControl">
-    <UserControl.Resources>
-        <converters:BooleanToVisibilityConverter x:Key="BoolToVis" />
-        <!-- Create or reuse an InverseBooleanToVisibilityConverter -->
-        <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis" />
-    </UserControl.Resources>
     <!-- ItemsRepeater to display the cells -->
     <ItemsRepeater ItemsSource="{x:Bind ItemsSource, Mode=OneWay}">
         <ItemsRepeater.Layout>

@@ -1,30 +1,24 @@
-// MainPage.xaml.cs
 using System.ComponentModel;
-using System.Drawing;
 using APS_Optimizer_V3.ViewModels;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Shapes;
-using Windows.Foundation;
-using Path = Microsoft.UI.Xaml.Shapes.Path; // Ensure ViewModel namespace is included
-using Point = Windows.Foundation.Point; // Ensure Point is from Windows.Foundation
-using Size = Windows.Foundation.Size; // Ensure Size is from Windows.Foundation
-using Brush = Microsoft.UI.Xaml.Media.Brush; // Ensure Brush is from Microsoft.UI.Xaml.Media
+using Path = Microsoft.UI.Xaml.Shapes.Path;
+using Point = Windows.Foundation.Point;
+using Size = Windows.Foundation.Size;
+using Brush = Microsoft.UI.Xaml.Media.Brush;
 
 namespace APS_Optimizer_V3;
 public sealed partial class MainPage : Page
 {
-    // Helper to access the ViewModel strongly-typed
     public MainViewModel ViewModel => DataContext as MainViewModel ??
                                       throw new InvalidOperationException("DataContext is not MainViewModel");
 
     public MainPage()
     {
-        this.InitializeComponent();
-        // Hook into Unloaded event for cleanup if MainViewModel is IDisposable
-        // (Assuming MainViewModel implements IDisposable from previous steps)
-        this.Loaded += MainPage_Loaded;
-        this.Unloaded += MainPage_Unloaded;
+        InitializeComponent();
+        Loaded += MainPage_Loaded;
+        Unloaded += MainPage_Unloaded;
     }
 
     private void MainPage_Loaded(object sender, RoutedEventArgs e)
@@ -34,6 +28,7 @@ public sealed partial class MainPage : Page
             npc.PropertyChanged += ViewModel_PropertyChanged;
         }
         EditorGridBorder.SizeChanged += OverlayArea_SizeChanged;
+        ResultGridBorder.SizeChanged += OverlayArea_SizeChanged;
         UpdateSymmetryOverlay(); // Initial draw
     }
 
@@ -43,9 +38,10 @@ public sealed partial class MainPage : Page
         {
             npc.PropertyChanged -= ViewModel_PropertyChanged;
         }
-        EditorGridBorder.SizeChanged -= OverlayArea_SizeChanged; // Unsubscribe
+        EditorGridBorder.SizeChanged -= OverlayArea_SizeChanged;
+        ResultGridBorder.SizeChanged -= OverlayArea_SizeChanged;
 
-        if (this.DataContext is IDisposable disposableViewModel)
+        if (DataContext is IDisposable disposableViewModel)
         {
             disposableViewModel.Dispose();
         }
@@ -53,47 +49,48 @@ public sealed partial class MainPage : Page
 
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        // ONLY react explicitly to symmetry selection changes here.
-        // Size changes are handled by OverlayArea_SizeChanged.
         if (e.PropertyName == nameof(ViewModel.SelectedSymmetryType) || e.PropertyName == nameof(ViewModel.SelectedSymmetry))
         {
-            // Enqueue the update to allow layout potentially finish first
+            // queue the update to allow layout to finish first
             DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, UpdateSymmetryOverlay);
         }
     }
 
     private void OverlayArea_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        // Redraw overlay AFTER the grid area size has actually changed
+        // Redraw overlay after the grid area size changed
         UpdateSymmetryOverlay();
     }
 
     private void UpdateSymmetryOverlay()
     {
-        // Ensure ViewModel and Canvas are available
+        // Check ViewModel and Canvas exist
         if (ViewModel == null || SymmetryOverlayCanvas == null)
         {
             Console.WriteLine("ViewModel or SymmetryOverlayCanvas is null.");
             return;
         }
-        ;
+        double width = EditorGridBorder.ActualWidth;
+        double height = EditorGridBorder.ActualHeight;
 
-        SymmetryOverlayCanvas.Children.Clear(); // Clear previous indicators
-        SymmetryOverlayCanvas.Height = EditorGridBorder.ActualHeight; // Set canvas height to match the grid area
-        SymmetryOverlayCanvas.Width = EditorGridBorder.ActualWidth; // Set canvas width to match the grid area
-        double width = SymmetryOverlayCanvas.Width;
-        double height = SymmetryOverlayCanvas.Height;
+        SymmetryOverlayCanvas.Children.Clear();
+        ResultSymmetryOverlayCanvas.Children.Clear();
+
+        SymmetryOverlayCanvas.Width = width;
+        SymmetryOverlayCanvas.Height = height;
+        ResultSymmetryOverlayCanvas.Width = width;
+        ResultSymmetryOverlayCanvas.Height = height;
+
         if (width <= 0 || height <= 0)
         {
             Console.WriteLine("Invalid canvas size for symmetry overlay.");
             return;
-        }
-        ; // Don't draw if size is invalid
+        } // Don't draw if size is invalid
 
         double centerX = width / 2.0;
         double centerY = height / 2.0;
 
-        double arrowRadius = 15;//Math.Max(Math.Min(width, height) * 0.25, 10);
+        double arrowRadius = 15;
 
         var reflexiveStrokeBrush = new SolidColorBrush(Colors.Cyan)
         {
@@ -102,225 +99,180 @@ public sealed partial class MainPage : Page
 
         var rotationalStrokeBrush = new SolidColorBrush(Colors.Red)
         {
-            Opacity = 0.7 // Semi-transparent for better visibility
+            Opacity = 0.7
         };
+
+        var resultReflexiveStrokeBrush = new SolidColorBrush(Colors.Cyan)
+        {
+            Opacity = 0.4 // result overlay less opaque
+        };
+
+        var resultRotationalStrokeBrush = new SolidColorBrush(Colors.Red)
+        {
+            Opacity = 0.4
+        };
+
         double strokeThickness = 2.0;
-        var strokeDashArray = new DoubleCollection() { 2, 3 }; // Dashed line style
+        var strokeDashArray = new DoubleCollection() { 2, 3 }; // Dashed line
 
         switch (ViewModel.SelectedSymmetryType)
         {
             case SelectedSymmetryType.Horizontal:
+                DrawHorizontalLine(SymmetryOverlayCanvas, width, centerY, reflexiveStrokeBrush, strokeThickness, strokeDashArray);
+                DrawHorizontalLine(ResultSymmetryOverlayCanvas, width, centerY, resultReflexiveStrokeBrush, strokeThickness, strokeDashArray);
+                break;
             case SelectedSymmetryType.Quadrants:
-                var hLine = new Line
-                {
-                    X1 = 0,
-                    Y1 = centerY,
-                    X2 = width,
-                    Y2 = centerY,
-                    Stroke = reflexiveStrokeBrush,
-                    StrokeThickness = strokeThickness,
-                    StrokeDashArray = strokeDashArray
-                };
-                SymmetryOverlayCanvas.Children.Add(hLine);
-                if (ViewModel.SelectedSymmetryType != SelectedSymmetryType.Quadrants) break; // Only draw H if not Two Line
-                goto case SelectedSymmetryType.Vertical; // Fallthrough for Two Line
-
+                DrawHorizontalLine(SymmetryOverlayCanvas, width, centerY, reflexiveStrokeBrush, strokeThickness, strokeDashArray);
+                DrawHorizontalLine(ResultSymmetryOverlayCanvas, width, centerY, resultReflexiveStrokeBrush, strokeThickness, strokeDashArray);
+                DrawVerticalLine(SymmetryOverlayCanvas, height, centerX, reflexiveStrokeBrush, strokeThickness, strokeDashArray);
+                DrawVerticalLine(ResultSymmetryOverlayCanvas, height, centerX, resultReflexiveStrokeBrush, strokeThickness, strokeDashArray);
+                break;
             case SelectedSymmetryType.Vertical:
-                var vLine = new Line
-                {
-                    X1 = centerX,
-                    Y1 = 0,
-                    X2 = centerX,
-                    Y2 = height,
-                    Stroke = reflexiveStrokeBrush,
-                    StrokeThickness = strokeThickness,
-                    StrokeDashArray = strokeDashArray
-                };
-                SymmetryOverlayCanvas.Children.Add(vLine);
+                DrawVerticalLine(SymmetryOverlayCanvas, height, centerX, reflexiveStrokeBrush, strokeThickness, strokeDashArray);
+                DrawVerticalLine(ResultSymmetryOverlayCanvas, height, centerX, resultReflexiveStrokeBrush, strokeThickness, strokeDashArray);
                 break;
-
             case SelectedSymmetryType.Rotational180:
-                // Draw two curved arrows
-                // Arrow 1: Top-Right to Bottom-Left (approx -45 to 135 deg)
-                Path arrow1_180 = CreateCurvedArrowPath(centerX, centerY, arrowRadius, 90, 270, rotationalStrokeBrush, strokeThickness, 10);
-                SymmetryOverlayCanvas.Children.Add(arrow1_180);
-                Path arrow2_180 = CreateCurvedArrowPath(centerX, centerY, arrowRadius, 270, 450, rotationalStrokeBrush, strokeThickness, 10);
-                SymmetryOverlayCanvas.Children.Add(arrow2_180);
+                DrawRotationalArrow(SymmetryOverlayCanvas, centerX, centerY, arrowRadius, 90, 270, rotationalStrokeBrush, strokeThickness);
+                DrawRotationalArrow(SymmetryOverlayCanvas, centerX, centerY, arrowRadius, 270, 450, rotationalStrokeBrush, strokeThickness);
+                DrawRotationalArrow(ResultSymmetryOverlayCanvas, centerX, centerY, arrowRadius, 90, 270, resultRotationalStrokeBrush, strokeThickness);
+                DrawRotationalArrow(ResultSymmetryOverlayCanvas, centerX, centerY, arrowRadius, 270, 450, resultRotationalStrokeBrush, strokeThickness);
                 break;
-
             case SelectedSymmetryType.Rotational90:
-                // Draw four curved arrows
-                // Arrow 1: Top-Right quadrant (approx -45 to 45 deg)
-                Path arrow1_90 = CreateCurvedArrowPath(centerX, centerY, arrowRadius, 0, 90, rotationalStrokeBrush, strokeThickness, 10);
-                SymmetryOverlayCanvas.Children.Add(arrow1_90);
-                Path arrow2_90 = CreateCurvedArrowPath(centerX, centerY, arrowRadius, 90, 180, rotationalStrokeBrush, strokeThickness, 10);
-                SymmetryOverlayCanvas.Children.Add(arrow2_90);
-                Path arrow3_90 = CreateCurvedArrowPath(centerX, centerY, arrowRadius, 180, 270, rotationalStrokeBrush, strokeThickness, 10);
-                SymmetryOverlayCanvas.Children.Add(arrow3_90);
-                Path arrow4_90 = CreateCurvedArrowPath(centerX, centerY, arrowRadius, 270, 360, rotationalStrokeBrush, strokeThickness, 10);
-                SymmetryOverlayCanvas.Children.Add(arrow4_90);
+                DrawRotationalArrow(SymmetryOverlayCanvas, centerX, centerY, arrowRadius, 0, 90, rotationalStrokeBrush, strokeThickness);
+                DrawRotationalArrow(SymmetryOverlayCanvas, centerX, centerY, arrowRadius, 90, 180, rotationalStrokeBrush, strokeThickness);
+                DrawRotationalArrow(SymmetryOverlayCanvas, centerX, centerY, arrowRadius, 180, 270, rotationalStrokeBrush, strokeThickness);
+                DrawRotationalArrow(SymmetryOverlayCanvas, centerX, centerY, arrowRadius, 270, 360, rotationalStrokeBrush, strokeThickness);
+                DrawRotationalArrow(ResultSymmetryOverlayCanvas, centerX, centerY, arrowRadius, 0, 90, resultRotationalStrokeBrush, strokeThickness);
+                DrawRotationalArrow(ResultSymmetryOverlayCanvas, centerX, centerY, arrowRadius, 90, 180, resultRotationalStrokeBrush, strokeThickness);
+                DrawRotationalArrow(ResultSymmetryOverlayCanvas, centerX, centerY, arrowRadius, 180, 270, resultRotationalStrokeBrush, strokeThickness);
+                DrawRotationalArrow(ResultSymmetryOverlayCanvas, centerX, centerY, arrowRadius, 270, 360, resultRotationalStrokeBrush, strokeThickness);
                 break;
 
             case SelectedSymmetryType.None:
             default:
-                // Do nothing, canvas is already cleared
                 break;
         }
     }
 
-
-
-    private async void EditShapeMenuItem_Click(object sender, RoutedEventArgs e)
+    private void DrawHorizontalLine(Canvas targetCanvas, double canvasWidth, double yPosition, Brush stroke, double thickness, DoubleCollection dashArray)
     {
-        // Get the MenuFlyoutItem that was clicked
-        if (sender is MenuFlyoutItem menuItem)
+        var line = new Line
         {
-            // Get the DataContext of the MenuFlyoutItem, which is the ShapeViewModel
-            if (menuItem.DataContext is ShapeViewModel shapeToEdit)
-            {
-                // Get the XamlRoot from the MenuFlyoutItem itself (most reliable way from a flyout)
-                var xamlRoot = menuItem.XamlRoot;
-
-                if (xamlRoot != null)
-                {
-                    // Call the ViewModel's method to show the dialog
-                    // No need for the separate ShowEditShapeDialogCommand anymore
-                    await CustomViewModel.ShowEditShapeDialog(shapeToEdit, XamlRoot);
-                }
-                else
-                {
-                    System.Diagnostics.Debug.WriteLine("Error: Could not get XamlRoot from MenuFlyoutItem.");
-                    // TODO: Show error to user?
-                }
-            }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine("Error: DataContext of MenuFlyoutItem is not a ShapeViewModel.");
-            }
-        }
+            X1 = 0,
+            Y1 = yPosition,
+            X2 = canvasWidth,
+            Y2 = yPosition,
+            Stroke = stroke,
+            StrokeThickness = thickness,
+            StrokeDashArray = dashArray
+        };
+        targetCanvas.Children.Add(line);
     }
 
-    private async void RemoveShapeMenuItem_Click(object sender, RoutedEventArgs e)
+    private void DrawVerticalLine(Canvas targetCanvas, double canvasHeight, double xPosition, Brush stroke, double thickness, DoubleCollection dashArray)
     {
-        if (sender is MenuFlyoutItem menuItem)
+        var line = new Line
         {
-            if (menuItem.DataContext is ShapeViewModel shapeToRemove)
-            {
-                var xamlRoot = menuItem.XamlRoot;
-                if (xamlRoot != null)
-                {
-                    await ViewModel.RequestRemoveShape(shapeToRemove, xamlRoot);
-                }
-                else
-                {
-                    Console.WriteLine("Error: Could not get XamlRoot from MenuFlyoutItem for removal.");
-                }
-            }
-            else
-            {
-                Console.WriteLine("Error: DataContext of MenuFlyoutItem is not a ShapeViewModel for removal.");
-            }
-        }
+            X1 = xPosition,
+            Y1 = 0,
+            X2 = xPosition,
+            Y2 = canvasHeight,
+            Stroke = stroke,
+            StrokeThickness = thickness,
+            StrokeDashArray = dashArray
+        };
+        targetCanvas.Children.Add(line);
     }
 
+    private void DrawRotationalArrow(Canvas targetCanvas, double centerX, double centerY, double radius, double startAngleDeg, double endAngleDeg, Brush stroke, double thickness)
+    {
+        Path arrowPath = CreateCurvedArrowPath(centerX, centerY, radius, startAngleDeg, endAngleDeg, stroke, thickness);
+        targetCanvas.Children.Add(arrowPath);
+    }
+
+    // probably over engineered but works
     private Path CreateCurvedArrowPath(
         double centerX, double centerY,
         double radius,
         double startAngleDeg, double endAngleDeg,
         Brush strokeBrush, double strokeThickness,
-        double gapAngleDeg = 5.0)
+        double gapAngleDeg = 10.0)
     {
-        // Apply GAP to shorten the arc
+        // Shorten the arc
         double effectiveStartAngleDeg = startAngleDeg + gapAngleDeg;
         double effectiveEndAngleDeg = endAngleDeg - gapAngleDeg;
 
-        if (effectiveStartAngleDeg >= effectiveEndAngleDeg)
-        {
-            effectiveEndAngleDeg = effectiveStartAngleDeg + 0.1;
-            if (effectiveStartAngleDeg >= endAngleDeg) return new Path();
-        }
+        if (effectiveStartAngleDeg >= effectiveEndAngleDeg) return new Path(); // Invalid arc
 
-        // Convert effective angles to radians
+        // Convert angles
         double startAngleRad = effectiveStartAngleDeg * Math.PI / 180.0;
-        double endAngleRad = effectiveEndAngleDeg * Math.PI / 180.0; // Use effective end angle
+        double effectiveEndAngleRad = effectiveEndAngleDeg * Math.PI / 180.0;
 
-        // Calculate start and end points of the shortened arc
+        // Start and end points for shortened arc
         Point startPoint = new Point(centerX + radius * Math.Cos(startAngleRad),
                                      centerY + radius * Math.Sin(startAngleRad));
-        Point endPoint = new Point(centerX + radius * Math.Cos(endAngleRad),
-                                   centerY + radius * Math.Sin(endAngleRad));
+        Point arcEndPoint = new Point(centerX + radius * Math.Cos(effectiveEndAngleRad - 3 * Math.PI / 180.0), // -3 needed for some reason otherwise arrowhead is not aligned
+                                   centerY + radius * Math.Sin(effectiveEndAngleRad - 3 * Math.PI / 180.0));
 
-        // Arc segment for the curve
+        // Arc segment for curve
         var arcSegment = new ArcSegment
         {
-            Point = endPoint,
+            Point = arcEndPoint,
             Size = new Size(radius, radius),
-            IsLargeArc = Math.Abs(endAngleDeg - startAngleDeg) > 180,
+            IsLargeArc = Math.Abs(endAngleDeg - startAngleDeg) > 180, // Use original angles
             SweepDirection = SweepDirection.Clockwise,
             RotationAngle = 0
         };
 
-        // --- Arrowhead Calculation (Based on last arc segment direction) ---
-        double arrowHeadAngle = 30.0 * Math.PI / 180.0; // Angle of arrowhead lines relative to back direction
+        arcEndPoint = new Point(centerX + radius * Math.Cos(effectiveEndAngleRad),
+                                  centerY + radius * Math.Sin(effectiveEndAngleRad));
+
+        // --- Arrowhead Calculation ---
+        double arrowHeadAngle = 30.0 * Math.PI / 180.0;
         double arrowHeadLength = 6.0;
 
-        // Calculate a point slightly *before* the endpoint on the arc
-        double preEndAngleRad = endAngleRad - (1.0 * Math.PI / 180.0); // Look back 1 degree
-        Point preEndPoint = new Point(centerX + radius * Math.Cos(preEndAngleRad),
-                                      centerY + radius * Math.Sin(preEndAngleRad));
+        // Calculate the tangent angle @ effective end point
+        double finalSegmentAngleRad = Math.Atan2(radius * Math.Cos(effectiveEndAngleRad),
+                                                -radius * Math.Sin(effectiveEndAngleRad));
 
-        // Calculate the angle of the vector pointing from preEndPoint to endPoint
-        // This approximates the direction of the curve at its very end
-        double dx = endPoint.X - preEndPoint.X;
-        double dy = endPoint.Y - preEndPoint.Y;
-        double finalSegmentAngleRad = Math.Atan2(dy, dx);
-
-        // Calculate the angle pointing *backwards* along this final segment
+        // Angle pointing directly backward from the direction of travel
         double backwardAngleRad = finalSegmentAngleRad + Math.PI;
 
-        // Calculate the two points for the arrowhead lines, deviating from the backward direction
-        // Point 1
-        double angle1 = backwardAngleRad + arrowHeadAngle;
-        double arrowPoint1X = endPoint.X + arrowHeadLength * Math.Cos(angle1);
-        double arrowPoint1Y = endPoint.Y + arrowHeadLength * Math.Sin(angle1);
-        // Point 2
-        double angle2 = backwardAngleRad - arrowHeadAngle;
-        double arrowPoint2X = endPoint.X + arrowHeadLength * Math.Cos(angle2);
-        double arrowPoint2Y = endPoint.Y + arrowHeadLength * Math.Sin(angle2);
-        // --- End Arrowhead Calculation ---
+        // Calculate the two points for the arrowhead wings, relative to arcEndPoint
+        double wingAngle1 = backwardAngleRad + arrowHeadAngle;
+        double arrowPoint1X = arcEndPoint.X + arrowHeadLength * Math.Cos(wingAngle1);
+        double arrowPoint1Y = arcEndPoint.Y + arrowHeadLength * Math.Sin(wingAngle1);
 
+        double wingAngle2 = backwardAngleRad - arrowHeadAngle;
+        double arrowPoint2X = arcEndPoint.X + arrowHeadLength * Math.Cos(wingAngle2);
+        double arrowPoint2Y = arcEndPoint.Y + arrowHeadLength * Math.Sin(wingAngle2);
 
-        // Define segments for the arrowhead lines originating from the endpoint
+        // Define segments for the arrowhead lines originating from the arc's endpoint
         var lineToArrowPoint1 = new LineSegment { Point = new Point(arrowPoint1X, arrowPoint1Y) };
-        var lineBackToEndpoint = new LineSegment { Point = endPoint }; // Move back to end for next line
+        var lineBackToEndpoint = new LineSegment { Point = arcEndPoint }; // Move back to the tip
         var lineToArrowPoint2 = new LineSegment { Point = new Point(arrowPoint2X, arrowPoint2Y) };
 
-
-        // Path Figure construction (remains the same)
+        // Path Figure construction
         var pathFigure = new PathFigure
         {
             StartPoint = startPoint,
+            IsFilled = false,
+            IsClosed = false,
             Segments = new PathSegmentCollection {
-                arcSegment,
-                lineToArrowPoint1,
-                lineBackToEndpoint,
-                lineToArrowPoint2
-            }
+            arcSegment,          // arc to arcEndPoint
+            lineToArrowPoint1,   // line from arcEndPoint to wing1
+            lineBackToEndpoint,  // line from wing1 back to arcEndPoint
+            lineToArrowPoint2    // line from arcEndPoint to wing2
+        }
         };
 
-        // Path Geometry
         var pathGeometry = new PathGeometry { Figures = { pathFigure } };
-
-        // Path element
-        var path = new Path
-        {
-            Data = pathGeometry,
-            Stroke = strokeBrush,
-            StrokeThickness = strokeThickness
-        };
+        var path = new Path { Data = pathGeometry, Stroke = strokeBrush, StrokeThickness = strokeThickness };
 
         return path;
     }
+
+
 
 
 }

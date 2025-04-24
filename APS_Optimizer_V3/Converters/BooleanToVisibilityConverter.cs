@@ -11,6 +11,6 @@ public class BooleanToVisibilityConverter : IValueConverter
 
     public object ConvertBack(object value, Type targetType, object parameter, string language)
     {
-        return (value is Visibility v && v == Visibility.Visible);
+        return value is Visibility v && v == Visibility.Visible;
     }
 }
