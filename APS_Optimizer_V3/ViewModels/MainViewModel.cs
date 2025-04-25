@@ -8,6 +8,7 @@ using System.Text;
 using WinRT.Interop;
 using Windows.Storage.Pickers;
 using Windows.UI;
+using Uno.Extensions.Specialized;
 namespace APS_Optimizer_V3.ViewModels;
 
 public partial class MainViewModel : ViewModelBase, IDisposable
@@ -31,6 +32,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     }
 
     [ObservableProperty] private string _resultTitle = "Result";
+
+    [ObservableProperty]
+    private string _solverProgressText = "";
+
+    [ObservableProperty]
+    private string _resultDisplayText = "";
 
     private Stopwatch? _solveStopwatch;
     private DispatcherTimer? _stopwatchTimer; // Timer for UI updates of stopwatch
@@ -506,6 +513,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         IsSolving = true;
         CurrentSolveTime = "00:00.000";
         ResultTitle = "Result: (Solving...)";
+        ResultDisplayText = "";
         Debug.WriteLine("Solve command initiated.");
 
         // --- Start Timing ---
@@ -513,6 +521,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         _stopwatchTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _stopwatchTimer.Tick += StopwatchTimer_Tick;
         _stopwatchTimer.Start();
+
+        var progressIndicator = new Progress<string>(update => SolverProgressText = update);
 
         // --- Prepare Solver Input ---
         SolverResult result = new SolverResult(false, "Initialization failed", 0, null, null);
@@ -539,7 +549,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 var parameters = new SolveParameters(GridWidth, GridHeight, blockedCells, enabledShapes, SelectedSymmetryType, UseSoftSymmetry);
 
                 //Debug.WriteLine($"Calling SolverService.SolveAsync with {enabledShapes.Count} shapes and {blockedCells.Count} blocked cells...");
-                result = await _solverService.SolveAsync(parameters);
+                result = await _solverService.SolveAsync(parameters, progressIndicator);
                 //Debug.WriteLine($"Solver finished. Success: {result.Success}, Message: {result.Message}, Placements: {result.SolutionPlacements?.Count ?? 0}");
                 _lastSolverLogs = result.IterationLogs; // Store logs regardless of success
             }
@@ -563,6 +573,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             if (result.Success && result.SolutionPlacements != null && result.SolutionPlacements.Any())
             {
                 ResultTitle = $"Result: Success (Took {finalTimeStr})";
+                ResultDisplayText = GetPlacementCountPerNameText(result.SolutionPlacements.ToList());
                 DisplaySolution(result.SolutionPlacements);
             }
             else
@@ -572,6 +583,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 Debug.WriteLine($"Solver failed or returned no solution. Message: {result.Message}");
                 // Optionally show a message dialog to the user here
             }
+            SolverProgressText = "";
 
             IsSolving = false;
             _stopwatchTimer = null;
@@ -585,6 +597,22 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         await Task.CompletedTask;
         Debug.WriteLine("Export command executed (placeholder).");
+    }
+
+    private string GetPlacementCountPerNameText(List<Placement> placements)
+    {
+        List<string> placementStrings = [];
+        Debug.WriteLine($"Getting result str for {placements.Count} placements and {placements.Select(p => p.ShapeName).Distinct().Count()} shapes");
+
+        foreach (var shapeName in placements.Select(p => p.ShapeName).Distinct())
+        {
+            var placementCount = placements.Where(p => p.ShapeName == shapeName).Count();
+
+            Debug.WriteLine($"Shape {shapeName} has {placementCount} placements");
+            placementStrings.Add($"{placementCount}x {shapeName}");
+        }
+
+        return "Placed: " + string.Join(", ", placementStrings);
     }
 
     private void DisplaySolution(ImmutableList<Placement> solutionPlacements)
