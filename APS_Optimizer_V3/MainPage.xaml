@@ -97,12 +97,19 @@
                             HorizontalAlignment="Center"
                             Visibility="{Binding IsSolving, Converter={StaticResource BoolToVis}}">
                     <ProgressRing IsActive="{Binding IsSolving}"
+                                  HorizontalAlignment="Center"
                                   Width="20"
                                   Height="20" />
                     <TextBlock Text="{Binding CurrentSolveTime}"
                                VerticalAlignment="Center"
                                FontSize="14" />
                 </StackPanel>
+                <TextBlock Text="{Binding SolverProgressText, Mode=OneWay}"
+                           HorizontalAlignment="Center"
+                           TextWrapping="Wrap"
+                           MaxWidth="250"
+                           FontSize="12"
+                           Foreground="{ThemeResource SystemControlPageTextBaseMediumBrush}" />
             </StackPanel>
             <!-- Result Grid Area -->
             <StackPanel Grid.Column="1"
@@ -136,6 +143,12 @@
                             Width="{Binding ActualWidth, ElementName=ResultGridBorder}"
                             Height="{Binding ActualHeight, ElementName=ResultGridBorder}" />
                 </Grid>
+                <TextBlock Text="{Binding ResultDisplayText, Mode=OneWay}"
+                           HorizontalAlignment="Center"
+                           TextWrapping="Wrap"
+                           MaxWidth="250"
+                           FontSize="12"
+                           Foreground="{ThemeResource SystemControlPageTextBaseMediumBrush}" />
                 <Button Content="Export Result"
                         Command="{Binding ExportCommand}"
                         HorizontalAlignment="Center" />

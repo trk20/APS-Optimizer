@@ -10,7 +10,7 @@ public class SolverService
 {
     private const string CryptoMiniSatPath = "cryptominisat5.exe";
 
-    public async Task<SolverResult> SolveAsync(SolveParameters parameters)
+    public async Task<SolverResult> SolveAsync(SolveParameters parameters, IProgress<string>? progress = null)
     {
         var stopwatch = Stopwatch.StartNew();
         Debug.WriteLine($"Solver started. Grid: {parameters.GridWidth}x{parameters.GridHeight}, Shapes: {parameters.EnabledShapes.Count}, Symmetry: {parameters.SelectedSymmetry}");
@@ -18,6 +18,7 @@ public class SolverService
         var iterationLogs = new List<SolverIterationLog>();
 
         // Generate all possible valid placements
+        progress?.Report("Generating placements...");
         var (allPlacements, _) = GeneratePlacements(parameters);
         if (!allPlacements.Any())
         {
@@ -26,6 +27,7 @@ public class SolverService
         Debug.WriteLine($"Generated {allPlacements.Count} raw placements.");
 
         // Apply Symmetry and Group Placements
+        progress?.Report("Applying symmetry...");
         VariableManager varManager = new VariableManager();
         var solveElements = ApplySymmetryAndGroup(
             allPlacements,
@@ -41,6 +43,7 @@ public class SolverService
 
 
         // Detect Collisions
+        progress?.Report("Analyzing conflicts...");
         var cellCollisions = DetectCollisions(solveElements, parameters.GridWidth);
         Debug.WriteLine($"Detected collisions across {cellCollisions.Count} cells.");
 
@@ -98,6 +101,9 @@ public class SolverService
         Debug.WriteLine($"Generated {conflictClauses.Count} pairwise conflict clauses. Max Var ID so far: {varManager.GetMaxVariableId()}");
 
 
+
+        progress?.Report("Starting optimization...");
+
         // Solving Loop
         var shapeAreas = parameters.EnabledShapes
         .Select(s => s.GetArea())
@@ -113,7 +119,8 @@ public class SolverService
         while (requiredCells >= 0)
         {
             iterationCounter++;
-            Debug.WriteLine($"Attempting to solve for at least {requiredCells} covered cells.");
+            progress?.Report($"Optimization attempt #{iterationCounter}...");
+            //Debug.WriteLine($"Attempting to solve for at least {requiredCells} covered cells.");
             var currentClauses = new List<List<int>>(conflictClauses);
             var currentAuxVarManager = new VariableManager();
             while (currentAuxVarManager.GetMaxVariableId() < varManager.GetMaxVariableId()) { currentAuxVarManager.GetNextVariable(); }
@@ -189,6 +196,7 @@ public class SolverService
             if (sat && solutionVars != null)
             {
                 stopwatch.Stop();
+                progress?.Report($"Solution found, displaying...");
                 Debug.WriteLine($"SATISFIABLE found for >= {requiredCells} cells. Time: {stopwatch.ElapsedMilliseconds} ms");
 
                 var solutionPlacements = MapResult(solutionVars, variableToObjectMap);
@@ -203,6 +211,7 @@ public class SolverService
             }
         }
         stopwatch.Stop();
+        progress?.Report("Failed: No solution found after all attempts.");
         return new SolverResult(false, "No solution found for any possible coverage.", 0, null, null);
     }
 
