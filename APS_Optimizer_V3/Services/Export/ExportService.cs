@@ -621,17 +621,18 @@ public class ExportService
             var blockInfo = resolvedBlocks[coord];
 
             // Calculate relative position
-            int relX = coord.X - minX;
+            int relX = coord.X - minX - ((maxX - minX) / 2);
             int relY = coord.Y - minY;
-            int relZ = coord.Z - minZ;
+            int relZ = maxZ - coord.Z;
 
             // Add to final lists
             //                         yes this is weird
-            finalBlockPositions.Add($"{relZ - 0.5 * maxZ},{relY},{relX}");
+            finalBlockPositions.Add($"{relX},{relY},{relZ}");
             finalBlockIds.Add(blockInfo.BlockId);
             finalBlockRotations.Add(blockInfo.RotationCode);
             finalBlockColorIndices.Add(_config.ExportDefaults.DefaultBCIValue);
             usedBlockIds.Add(blockInfo.BlockId);
+
 
             // --- Process BlockData ---
             if (!string.IsNullOrEmpty(blockInfo.BlockDataSegment))

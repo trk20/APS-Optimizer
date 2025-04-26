@@ -62,10 +62,10 @@
     "Clip_1": {
       "BlockId": 419,
       "RotationMap": {
-        "North": 9,
-        "East": 10,
-        "South": 11,
-        "West": 8,
+        "North": 10,
+        "East": 11,
+        "South": 8,
+        "West": 9,
         "Up": 12,
         "Down": 0
       },
@@ -75,10 +75,10 @@
     "Clip_2": {
       "BlockId": 420,
       "RotationMap": {
-        "North": 9,
-        "East": 10,
-        "South": 11,
-        "West": 8
+        "North": 10,
+        "East": 11,
+        "South": 8,
+        "West": 9
       },
       "MaterialCost": 200.0,
       "UseSharedBlockData": "Clip_BlockData"
@@ -86,10 +86,10 @@
     "Clip_3": {
       "BlockId": 421,
       "RotationMap": {
-        "North": 9,
-        "East": 10,
-        "South": 11,
-        "West": 8
+        "North": 10,
+        "East": 11,
+        "South": 8,
+        "West": 9
       },
       "MaterialCost": 220.0,
       "UseSharedBlockData": "Clip_BlockData"
@@ -97,10 +97,10 @@
     "Clip_4": {
       "BlockId": 422,
       "RotationMap": {
-        "North": 9,
-        "East": 10,
-        "South": 11,
-        "West": 8
+        "North": 10,
+        "East": 11,
+        "South": 8,
+        "West": 9
       },
       "MaterialCost": 240.0,
       "UseSharedBlockData": "Clip_BlockData"
@@ -108,10 +108,10 @@
     "Clip_5": {
       "BlockId": 423,
       "RotationMap": {
-        "North": 9,
-        "East": 10,
-        "South": 11,
-        "West": 8
+        "North": 10,
+        "East": 11,
+        "South": 8,
+        "West": 9
       },
       "MaterialCost": 260.0,
       "UseSharedBlockData": "Clip_BlockData"
@@ -119,10 +119,10 @@
     "Clip_6": {
       "BlockId": 424,
       "RotationMap": {
-        "North": 9,
-        "East": 10,
-        "South": 11,
-        "West": 8
+        "North": 10,
+        "East": 11,
+        "South": 8,
+        "West": 9
       },
       "MaterialCost": 280.0,
       "UseSharedBlockData": "Clip_BlockData"
@@ -130,10 +130,10 @@
     "Clip_7": {
       "BlockId": 425,
       "RotationMap": {
-        "North": 9,
-        "East": 10,
-        "South": 11,
-        "West": 8
+        "North": 10,
+        "East": 11,
+        "South": 8,
+        "West": 9
       },
       "MaterialCost": 300.0,
       "UseSharedBlockData": "Clip_BlockData"
@@ -141,10 +141,10 @@
     "Clip_8": {
       "BlockId": 426,
       "RotationMap": {
-        "North": 9,
-        "East": 10,
-        "South": 11,
-        "West": 8
+        "North": 10,
+        "East": 11,
+        "South": 8,
+        "West": 9
       },
       "MaterialCost": 320.0,
       "UseSharedBlockData": "Clip_BlockData"
