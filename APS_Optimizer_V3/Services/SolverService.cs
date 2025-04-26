@@ -111,7 +111,7 @@ public class SolverService
         .Distinct()
         .ToList();
         if (!shapeAreas.Any()) { return new SolverResult(false, "...", 0, null, null); }
-        int decrementStep = parameters.EnabledShapes.Any(s => s.CouldSelfIntersect()) ? 1 : CalculateListGcd(shapeAreas);
+        int decrementStep = parameters.EnabledShapes.Any(s => s.CouldSelfIntersect()) ? 1 : MathUtils.CalculateListGcd(shapeAreas);
         int totalAvailableCells = parameters.GridWidth * parameters.GridHeight - parameters.BlockedCells.Count;
         int requiredCells = totalAvailableCells / decrementStep * decrementStep;
         int iterationCounter = 0;
@@ -903,38 +903,6 @@ public class SolverService
                 return new List<SymmetryType> { SymmetryType.None };
         }
 
-    }
-
-    /// Calculates GCD of two ints
-    private static int CalculateGcd(int a, int b)
-    {
-        while (b != 0)
-        {
-            int temp = b;
-            b = a % b;
-            a = temp;
-        }
-        return a;
-    }
-
-    // Calculates GCD for list of ints
-    private static int CalculateListGcd(IEnumerable<int> numbers)
-    {
-        if (numbers == null || !numbers.Any())
-        {
-            return 1;
-        }
-        int result = numbers.First();
-
-        foreach (int number in numbers.Skip(1))
-        {
-            result = CalculateGcd(result, number);
-            if (result == 1)
-            {
-                break;
-            }
-        }
-        return Math.Max(1, result);
     }
 
     private bool TryGetCellTypeForElementAt(ISolveElement element, int r, int c, out CellTypeInfo? cellType)

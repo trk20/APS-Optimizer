@@ -7,6 +7,7 @@ using Path = Microsoft.UI.Xaml.Shapes.Path;
 using Point = Windows.Foundation.Point;
 using Size = Windows.Foundation.Size;
 using Brush = Microsoft.UI.Xaml.Media.Brush;
+using System.Diagnostics;
 
 namespace APS_Optimizer_V3;
 public sealed partial class MainPage : Page
@@ -55,6 +56,7 @@ public sealed partial class MainPage : Page
             DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, UpdateSymmetryOverlay);
         }
     }
+
 
     private void OverlayArea_SizeChanged(object sender, SizeChangedEventArgs e)
     {

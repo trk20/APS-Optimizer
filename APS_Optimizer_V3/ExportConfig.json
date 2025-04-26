@@ -1,0 +1,250 @@
+{
+  "SharedBlockData": {
+    "Clip_BlockData": "AAAADgAAAAMAAQAAAAAAAF0bAQAAAwAAAAA="
+  },
+  "BasicBlockDefinitions": {
+    "Loader_1": {
+      "BlockId": 365,
+      "DefaultRotationCode": 10,
+      "RotationMap": { "North": 10, "East": 9, "South": 8, "West": 11 },
+      "BlockData": "",
+      "MaterialCost": 240.0
+    },
+    "Loader_2": {
+      "BlockId": 366,
+      "DefaultRotationCode": 10,
+      "RotationMap": { "North": 10, "East": 9, "South": 8, "West": 11 },
+      "BlockData": "",
+      "MaterialCost": 300.0
+    },
+    "Loader_3": {
+      "BlockId": 367,
+      "DefaultRotationCode": 10,
+      "RotationMap": { "North": 10, "East": 9, "South": 8, "West": 11 },
+      "BlockData": "",
+      "MaterialCost": 330.0
+    },
+    "Loader_4": {
+      "BlockId": 368,
+      "DefaultRotationCode": 10,
+      "RotationMap": { "North": 10, "East": 9, "South": 8, "West": 11 },
+      "BlockData": "",
+      "MaterialCost": 360.0
+    },
+    "Loader_5": {
+      "BlockId": 369,
+      "DefaultRotationCode": 10,
+      "RotationMap": { "North": 10, "East": 9, "South": 8, "West": 11 },
+      "BlockData": "",
+      "MaterialCost": 390.0
+    },
+    "Loader_6": {
+      "BlockId": 370,
+      "DefaultRotationCode": 10,
+      "RotationMap": { "North": 10, "East": 9, "South": 8, "West": 11 },
+      "BlockData": "",
+      "MaterialCost": 420.0
+    },
+    "Loader_7": {
+      "BlockId": 371,
+      "DefaultRotationCode": 10,
+      "RotationMap": { "North": 10, "East": 9, "South": 8, "West": 11 },
+      "BlockData": "",
+      "MaterialCost": 450.0
+    },
+    "Loader_8": {
+      "BlockId": 372,
+      "DefaultRotationCode": 10,
+      "RotationMap": { "North": 10, "East": 9, "South": 8, "West": 11 },
+      "BlockData": "",
+      "MaterialCost": 480.0
+    },
+    "Clip_1": {
+      "BlockId": 419,
+      "RotationMap": {
+        "North": 10,
+        "East": 11,
+        "South": 8,
+        "West": 9,
+        "Up": 12,
+        "Down": 0
+      },
+      "MaterialCost": 160.0,
+      "UseSharedBlockData": "Clip_BlockData"
+    },
+    "Clip_2": {
+      "BlockId": 420,
+      "RotationMap": {
+        "North": 10,
+        "East": 11,
+        "South": 8,
+        "West": 9
+      },
+      "MaterialCost": 200.0,
+      "UseSharedBlockData": "Clip_BlockData"
+    },
+    "Clip_3": {
+      "BlockId": 421,
+      "RotationMap": {
+        "North": 10,
+        "East": 11,
+        "South": 8,
+        "West": 9
+      },
+      "MaterialCost": 220.0,
+      "UseSharedBlockData": "Clip_BlockData"
+    },
+    "Clip_4": {
+      "BlockId": 422,
+      "RotationMap": {
+        "North": 10,
+        "East": 11,
+        "South": 8,
+        "West": 9
+      },
+      "MaterialCost": 240.0,
+      "UseSharedBlockData": "Clip_BlockData"
+    },
+    "Clip_5": {
+      "BlockId": 423,
+      "RotationMap": {
+        "North": 10,
+        "East": 11,
+        "South": 8,
+        "West": 9
+      },
+      "MaterialCost": 260.0,
+      "UseSharedBlockData": "Clip_BlockData"
+    },
+    "Clip_6": {
+      "BlockId": 424,
+      "RotationMap": {
+        "North": 10,
+        "East": 11,
+        "South": 8,
+        "West": 9
+      },
+      "MaterialCost": 280.0,
+      "UseSharedBlockData": "Clip_BlockData"
+    },
+    "Clip_7": {
+      "BlockId": 425,
+      "RotationMap": {
+        "North": 10,
+        "East": 11,
+        "South": 8,
+        "West": 9
+      },
+      "MaterialCost": 300.0,
+      "UseSharedBlockData": "Clip_BlockData"
+    },
+    "Clip_8": {
+      "BlockId": 426,
+      "RotationMap": {
+        "North": 10,
+        "East": 11,
+        "South": 8,
+        "West": 9
+      },
+      "MaterialCost": 320.0,
+      "UseSharedBlockData": "Clip_BlockData"
+    },
+    "AmmoIntake_1": {
+      "BlockId": 364,
+      "MaterialCost": 50.0,
+      "RotationMap": {
+        "North": 0,
+        "East": 1,
+        "South": 2,
+        "West": 3,
+        "Up": 10,
+        "Down": 4
+      },
+      "BlockDataMap": {
+        "North": "AAAADgAAAAcAAAAAAAAAAF0bAQAAAAAAAATWAAAA",
+        "East": "AAAADgAAAAcAAAAAAAAAAF0bAQAAAAAAAAT6AAAA",
+        "South": "AAAADgAAAAcAAAAAAAAAAF0bAQAAAAAAAAT5AAAA",
+        "West": "AAAADgAAAAcAAAAAAAAAAF0bAQAAAAAAAAT4AAAA",
+        "Up": "AAAADgAAAAcAAAAAAAAAAF0bAQAAAAAAAATIAAAA",
+        "Down": "AAAADgAAAAcAAAAAAAAAAF0bAQAAAAAAAATHAAAA"
+      }
+    },
+    "Cooler_1": {
+      "BlockId": 387,
+      "DefaultRotationCode": 11,
+      "BlockData": "",
+      "MaterialCost": 20.0
+    }
+  },
+
+  "ShapeExportMapping": {
+    "3-Clip": {
+      "Mode": "ScaleBasic",
+      "HeightRange": [1, 8],
+      "CellTypeMap": { "Loader": "Loader", "Clip": "Clip" }
+    },
+    "4-Clip": {
+      "Mode": "ScaleBasic",
+      "HeightRange": [1, 8],
+      "CellTypeMap": { "Loader": "Loader", "Clip": "Clip" }
+    },
+    "5-Clip": {
+      "Mode": "StackPerCell",
+      "Height": 3,
+      "CellStackDefinitions": {
+        "Loader": [
+          { "BlockDefKey": "Clip_1", "FixedOrientation": "Up" },
+          { "BlockDefKey": "Loader_1", "FixedOrientation": "South" },
+          { "BlockDefKey": "Clip_1", "FixedOrientation": "Down" }
+        ],
+        "Clip": [
+          { "BlockDefKey": "AmmoIntake_1", "FixedOrientation": "Up" },
+          { "BlockDefKey": "Clip_1", "OrientationSource": "FromCell" },
+          { "BlockDefKey": "AmmoIntake_1", "FixedOrientation": "Down" }
+        ],
+        "Cooler": [
+          { "BlockDefKey": "Cooler_1", "FixedOrientation": "West" },
+          { "BlockDefKey": "Cooler_1", "FixedOrientation": "West" },
+          { "BlockDefKey": "Cooler_1", "FixedOrientation": "West" }
+        ]
+      }
+    },
+    "Cooler": {
+      "Mode": "StackBasic",
+      "HeightRange": [1, 8],
+      "BlockDefKey": "Cooler_1"
+    }
+  },
+
+  "KnownItemMappings": {
+    "0": "f675b19a-4a67-41de-bd60-651bac2cfe17",
+    "364": "0a1aa046-e841-4813-907e-6567e596a079",
+    "365": "d7d56a2b-bc35-4c89-87de-38c99e7d1c2f",
+    "366": "04d60765-2c11-48eb-b9fa-c3eb847b91d5",
+    "367": "23453c1f-3946-4db0-a75e-f8b6dab12569",
+    "368": "86a9327f-50c1-44d9-aa06-08dc3f25b433",
+    "369": "7bb4572c-0ee5-42a5-b562-47a573757f41",
+    "370": "1dd8c1cf-ce0b-469d-9924-455dae4958f5",
+    "371": "704a2934-b07e-41cb-880d-91b3995152a9",
+    "372": "832b5533-fa5d-45ec-ba4f-2dca1e8f0bba",
+    "387": "3d6d4fca-b7a9-44f3-a888-d3e43a79331a",
+    "419": "375f4305-47bc-4abd-8c68-b67cb50e7036",
+    "420": "f45bd228-43c8-482c-824c-71e48e8ef27a",
+    "421": "7676bdb0-2cc4-4966-8d71-b1025244d911",
+    "422": "120b90ce-8434-4e44-a32f-7e5da874eaf7",
+    "423": "24182e93-94d4-4b29-8795-a107b21b2695",
+    "424": "1cbba583-ef54-4de9-9364-4e7371bf4ac3",
+    "425": "00e9e62f-8b53-4cca-89ef-2a99a76766da",
+    "426": "973c1ee1-2dc4-4cd7-be7c-32a37cb405de"
+  },
+  "ExportDefaults": {
+    "VehicleData": "sct0AAAAAAAA",
+    "DefaultBCIValue": 0,
+    "CoordinateSystem": {
+      "SolverRow": "GameZ",
+      "SolverCol": "GameX",
+      "HeightAxis": "GameY",
+      "Origin": "MinCorner"
+    }
+  }
+}

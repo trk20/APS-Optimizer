@@ -43,6 +43,7 @@
     </UnoFeatures>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="ExportConfig.json" />
     <Content Include="Assets\Images\generic.png" >
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
