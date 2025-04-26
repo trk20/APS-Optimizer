@@ -66,8 +66,8 @@
         "East": 10,
         "South": 11,
         "West": 8,
-        "Up": 23,
-        "Down": 21
+        "Up": 12,
+        "Down": 0
       },
       "MaterialCost": 160.0,
       "UseSharedBlockData": "Clip_BlockData"
@@ -157,16 +157,16 @@
         "East": 1,
         "South": 2,
         "West": 3,
-        "Up": 0,
-        "Down": 14
+        "Up": 10,
+        "Down": 4
       },
       "BlockDataMap": {
         "North": "AAAADgAAAAcAAAAAAAAAAF0bAQAAAAAAAATWAAAA",
         "East": "AAAADgAAAAcAAAAAAAAAAF0bAQAAAAAAAAT6AAAA",
         "South": "AAAADgAAAAcAAAAAAAAAAF0bAQAAAAAAAAT5AAAA",
         "West": "AAAADgAAAAcAAAAAAAAAAF0bAQAAAAAAAAT4AAAA",
-        "Up": "AAAADgAAAAcAAAAAAAAAAF0bAQAAAAAAAATpAAAA",
-        "Down": "AAAADgAAAAcAAAAAAAAAAF0bAQAAAAAAAATdAAAA"
+        "Up": "AAAADgAAAAcAAAAAAAAAAF0bAQAAAAAAAATIAAAA",
+        "Down": "AAAADgAAAAcAAAAAAAAAAF0bAQAAAAAAAATHAAAA"
       }
     },
     "Cooler_1": {

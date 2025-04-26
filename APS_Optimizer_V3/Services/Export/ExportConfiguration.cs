@@ -5,7 +5,7 @@ namespace APS_Optimizer_V3.Services.Export;
 // --- Root Configuration Object ---
 public class ExportConfiguration
 {
-    // --- ADDED: Dictionary for shared data ---
+    // --- Dictionary for shared data ---
     [JsonProperty("SharedBlockData")]
     public Dictionary<string, string> SharedBlockData { get; set; } = new();
 
@@ -31,14 +31,14 @@ public class BasicBlockDefinition
     [JsonProperty("MaterialCost")]
     public double MaterialCost { get; set; }
 
-    // Use EITHER DefaultRotationCode OR RotationMap
+    // Use either DefaultRotationCode or RotationMap
     [JsonProperty("DefaultRotationCode")]
     public int? DefaultRotationCode { get; set; } // Nullable if RotationMap is used
 
     [JsonProperty("RotationMap")]
     public Dictionary<LogicalOrientation, int>? RotationMap { get; set; } // Logical Orientation (string) -> BLR Code (int)
 
-    // Use EITHER BlockData OR BlockDataMap OR UseSharedBlockData
+    // Use either BlockData, BlockDataMap, or UseSharedBlockData
     [JsonProperty("BlockData")]
     public string? BlockData { get; set; } // Single Base64 string or empty
 
@@ -53,7 +53,7 @@ public class BasicBlockDefinition
 public class ShapeExportMapping
 {
     [JsonProperty("Mode")]
-    public ExportMode Mode { get; set; } = ExportMode.ScaleBasic; // "ScaleBasic", "StackBasic", "StackPerCell"
+    public ExportMode Mode { get; set; } = ExportMode.ScaleBasic;
 
     // Used by ScaleBasic, StackBasic
     [JsonProperty("HeightRange")]
@@ -81,10 +81,10 @@ public class BlockStackEntry
     public string BlockDefKey { get; set; } = string.Empty; // Prefix or full key for BasicBlockDefinitions
 
     [JsonProperty("FixedOrientation")]
-    public LogicalOrientation? FixedOrientation { get; set; } // e.g., "Up", "South", "West" (if rotation doesn't come from cell)
+    public LogicalOrientation? FixedOrientation { get; set; }
 
     [JsonProperty("OrientationSource")]
-    public RotationSource? OrientationSource { get; set; } // "FromCell" if rotation depends on CellTypeInfo.CurrentRotation
+    public RotationSource? OrientationSource { get; set; } // FromCell if rotation depends on CellTypeInfo.CurrentRotation
 }
 
 
@@ -96,26 +96,6 @@ public class ExportDefaults
 
     [JsonProperty("DefaultBCIValue")]
     public int DefaultBCIValue { get; set; } = 0;
-
-    [JsonProperty("CoordinateSystem")]
-    public CoordinateSystemMapping CoordinateSystem { get; set; } = new();
-
-    // Add other fixed values if needed (like CSI)
-}
-
-public class CoordinateSystemMapping
-{
-    [JsonProperty("SolverRow")]
-    public string SolverRow { get; set; } = "GameZ"; // Maps to X, Y, or Z
-
-    [JsonProperty("SolverCol")]
-    public string SolverCol { get; set; } = "GameX"; // Maps to X, Y, or Z
-
-    [JsonProperty("HeightAxis")]
-    public string HeightAxis { get; set; } = "GameY"; // X, Y, or Z
-
-    [JsonProperty("Origin")]
-    public string Origin { get; set; } = "MinCorner"; // "MinCorner" or potentially "Center"
 }
 
 // --- Helper Enums ---

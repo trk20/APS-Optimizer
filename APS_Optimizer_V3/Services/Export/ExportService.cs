@@ -1,9 +1,7 @@
 using APS_Optimizer_V3.Helpers;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System.Diagnostics;
 using System.Globalization;
-using System.Text;
 
 namespace APS_Optimizer_V3.Services.Export;
 
@@ -21,10 +19,10 @@ internal record ResolvedBlockInfo(
     int BlockId,
     int RotationCode,
     string? BlockDataSegment,
-    double Cost // Store cost here too for verification if needed
+    double Cost
 );
 
-// Represents the root structure of the exported JSON file
+// Represents the root structure of exported JSON file
 internal class BlueprintRoot
 {
     public FileModelVersion FileModelVersion { get; set; } = new();
@@ -32,7 +30,7 @@ internal class BlueprintRoot
     public int Version { get; set; } = 0;
     public int SavedTotalBlockCount { get; set; }
     public double SavedMaterialCost { get; set; }
-    public double ContainedMaterialCost { get; set; } = 0.0; // Seems fixed
+    public double ContainedMaterialCost { get; set; } = 0.0;
     public Dictionary<string, string> ItemDictionary { get; set; } = new();
     public Blueprint Blueprint { get; set; } = new();
 }
@@ -46,22 +44,21 @@ internal class FileModelVersion
 internal class Blueprint
 {
     public double ContainedMaterialCost { get; set; } = 0.0;
-    // CSI, COL, SCs likely fixed/null based on examples
     public List<string>? COL { get; set; } = null;
-    public List<object> SCs { get; set; } = new(); // Assuming empty array []
+    public List<object> SCs { get; set; } = new();
     [JsonProperty("BLP")] public List<string> BlockPositions { get; set; } = new();
     [JsonProperty("BLR")] public List<int> BlockRotations { get; set; } = new();
-    public object? BP1 { get; set; } = null; // Seems null
-    public object? BP2 { get; set; } = null; // Seems null
-    [JsonProperty("BCI")] public List<int> BlockColorIndices { get; set; } = new();
-    public object? BEI { get; set; } = null; // Seems null
+    public object? BP1 { get; set; } = null;
+    public object? BP2 { get; set; } = null;
+    [JsonProperty("BCI")] public List<int> BlockColorIndices { get; set; } = new(); // not sure
+    public object? BEI { get; set; } = null;
     public string BlockData { get; set; } = string.Empty;
     public string VehicleData { get; set; } = string.Empty;
     public bool designChanged { get; set; } = false;
     public int blueprintVersion { get; set; } = 0;
     public string blueprintName { get; set; } = string.Empty;
     public SerializedInfo SerializedInfo { get; set; } = new();
-    // Name, ItemNumber, LocalPosition, LocalRotation, ForceId seem metadata/defaults
+    // Name, ItemNumber, LocalPosition, LocalRotation
     public object? Name { get; set; } = null;
     public int ItemNumber { get; set; } = 0;
     public string LocalPosition { get; set; } = "0,0,0";
@@ -71,31 +68,31 @@ internal class Blueprint
     public string MaxCords { get; set; } = string.Empty;
     public string MinCords { get; set; } = string.Empty;
     [JsonProperty("BlockIds")] public List<int> BlockIds { get; set; } = new();
-    public object? BlockState { get; set; } = null; // Seems null
+    public object? BlockState { get; set; } = null;
     public int AliveCount { get; set; }
-    public object? BlockStringData { get; set; } = null; // Seems null
-    public object? BlockStringDataIds { get; set; } = null; // Seems null
-    public string GameVersion { get; set; } = "4.2.5.2"; // Or make configurable
+    public object? BlockStringData { get; set; } = null;
+    public object? BlockStringDataIds { get; set; } = null;
+    public string GameVersion { get; set; } = "4.2.5.2"; // Possibly make configurable?
     public int PersistentSubObjectIndex { get; set; } = -1;
     public int PersistentBlockIndex { get; set; } = -1;
-    public AuthorDetails AuthorDetails { get; set; } = new(); // You might want to make this configurable
+    public AuthorDetails AuthorDetails { get; set; } = new(); // Might make this configurable
     public int BlockCount { get; set; }
 }
 
 internal class SerializedInfo
 {
-    public Dictionary<string, object> JsonDictionary { get; set; } = new(); // Assuming empty
+    public Dictionary<string, object> JsonDictionary { get; set; } = new();
     public bool IsEmpty { get; set; } = true;
 }
 
-internal class AuthorDetails // Placeholder - copy or make configurable
+internal class AuthorDetails // might make configurable but works for now
 {
     public bool Valid { get; set; } = true;
     public int ForeignBlocks { get; set; } = 0;
     public string CreatorId { get; set; } = "c241a249-42d7-4bf7-85f1-4efe34ba5664";
-    public string ObjectId { get; set; } = Guid.NewGuid().ToString(); // Generate new one?
+    public string ObjectId { get; set; } = Guid.NewGuid().ToString();
     public string CreatorReadableName { get; set; } = "trk20";
-    public string HashV1 { get; set; } = ""; // Needs calculation? Or leave empty?
+    public string HashV1 { get; set; } = ""; // looks to be unneeded but leaving in anyway
 }
 
 
@@ -121,10 +118,10 @@ public class ExportService
             return (0.0, 0);
         }
 
-        // 1. Generate potential blocks (same logic as in GenerateBlueprintJson)
+        // Generate potential blocks
         var potentialBlocks = GeneratePotentialBlocks(solutionPlacements, targetHeight);
 
-        // 2. Resolve overlaps and calculate cost (same logic as in GenerateBlueprintJson)
+        // Resolve overlaps and calculate cost
         var (resolvedBlocks, totalMaterialCost) = ResolveOverlaps(potentialBlocks);
 
         return (totalMaterialCost, resolvedBlocks.Count);
@@ -132,7 +129,7 @@ public class ExportService
 
     private void PreProcessConfig()
     {
-        // --- Step 1: Cache shared data ---
+        // --- Cache shared data ---
         _sharedBlockDataCache.Clear();
         if (_config.SharedBlockData != null)
         {
@@ -142,25 +139,25 @@ public class ExportService
             }
         }
 
-        // --- Step 2: Populate lookup and resolve shared data references ---
+        // --- Populate lookup and resolve shared data references ---
         _blockDefLookup.Clear();
-        if (_config.BasicBlockDefinitions == null) return; // Safety check
+        if (_config.BasicBlockDefinitions == null) return;
 
         foreach (var kvp in _config.BasicBlockDefinitions)
         {
             var blockDef = kvp.Value;
-            if (blockDef == null) continue; // Safety check
+            if (blockDef == null) continue;
 
-            // --- Resolve shared block data reference FIRST ---
-            // Start with the value directly in BlockData (if any)
+            // --- Resolve shared block data reference ---
+            // Start with value directly in BlockData (if any)
             string? resolvedBlockData = blockDef.BlockData;
 
-            // If UseSharedBlockData is specified, try to overwrite with shared data
+            // If UseSharedBlockData specified, try to overwrite with shared data
             if (!string.IsNullOrEmpty(blockDef.UseSharedBlockData))
             {
                 if (_sharedBlockDataCache.TryGetValue(blockDef.UseSharedBlockData, out var sharedData))
                 {
-                    resolvedBlockData = sharedData; // Use shared data
+                    resolvedBlockData = sharedData;
                 }
                 else
                 {
@@ -183,15 +180,107 @@ public class ExportService
         }
     }
 
+    public (int minHeight, int maxHeight, int step) CalculateHeightRules(ImmutableList<Placement>? placements)
+    {
+        int overallMin = 1;
+        int overallMax = 8;
+        int step = 1;
+        List<int> stackHeights = new();
+        bool hasScaling = false;
+        bool hasStacking = false;
+
+        if (placements == null || !placements.Any())
+        {
+            Debug.WriteLine("CalculateHeightRules: No placements provided, returning default (1, 8, 1).");
+            return (1, 8, 1); // Return default range if no solution
+        }
+
+        var uniqueShapeNames = placements.Select(p => p.ShapeName).Distinct().ToList();
+
+        // Get rules for each unique shape type in the solution
+        foreach (var shapeName in uniqueShapeNames)
+        {
+            if (_config.ShapeExportMapping.TryGetValue(shapeName, out var mapping))
+            {
+                if (mapping.Mode == ExportMode.ScaleBasic || mapping.Mode == ExportMode.StackBasic)
+                {
+                    if (mapping.HeightRange != null && mapping.HeightRange.Count == 2)
+                    {
+                        hasScaling = true;
+                        overallMin = Math.Max(overallMin, mapping.HeightRange[0]); // Highest minimum
+                        overallMax = Math.Min(overallMax, mapping.HeightRange[1]); // Lowest maximum
+                    }
+                }
+                else if (mapping.Mode == ExportMode.StackPerCell && mapping.Height.HasValue)
+                {
+                    hasStacking = true;
+                    stackHeights.Add(mapping.Height.Value);
+                }
+            }
+            else
+            {
+                Debug.WriteLine($"Warning: CalculateHeightRules - No export mapping found for shape '{shapeName}'.");
+            }
+        }
+
+        // Determine rules based on shapes present
+        if (hasStacking)
+        {
+            step = MathUtils.CalculateListGcd(stackHeights.Distinct());
+            step = Math.Max(1, step); // Check step is at least 1
+
+            if (hasScaling)
+            {
+                // Find intersection respecting step
+                int firstValidMultiple = overallMin % step == 0
+                   ? overallMin
+                   : overallMin + (step - (overallMin % step));
+                // Make sure start is at least one full step size if min was below it
+                firstValidMultiple = Math.Max(step, firstValidMultiple);
+
+                // Check start is within the original max bound
+                if (firstValidMultiple > overallMax)
+                {
+                    // No valid range exists
+                    Debug.WriteLine($"Height rule conflict (Mixed): First valid step {firstValidMultiple} exceeds max bound {overallMax}.");
+                    return (1, 0, step); // Return impossible range (min > max)
+                }
+
+                int lastValidMultiple = overallMax / step * step; // Round down
+
+                overallMin = firstValidMultiple;
+                overallMax = lastValidMultiple;
+            }
+            else
+            {
+                // Only Stacking: Min and Step are GCD, Max is multiple of GCD
+                overallMin = step;
+                overallMax = step * 15;
+            }
+        }
+        else if (hasScaling)
+        {
+            step = 1;
+        }
+
+        // Sanity check
+        overallMin = Math.Max(1, overallMin);
+        if (overallMin > overallMax)
+        {
+            Debug.WriteLine($"Height rule conflict (Final): Min ({overallMin}) > Max ({overallMax})");
+            return (overallMin, overallMax, step);
+        }
+
+        Debug.WriteLine($"Calculated Height Rules: Min={overallMin}, Max={overallMax}, Step={step}");
+        return (overallMin, overallMax, step);
+    }
 
 
-    /// <summary>
-    /// Generates the blueprint JSON string.
-    /// </summary>
-    /// <returns>A tuple containing the JSON string and the calculated total material cost.</returns>
+
+    // Generates blueprint JSON string.
     public (string json, double totalCost, int blockCount) GenerateBlueprintJson(
         ImmutableList<Placement> solutionPlacements,
-        int targetHeight, // User input for applicable modes
+        int targetHeight,
         string blueprintName)
     {
         if (solutionPlacements == null || !solutionPlacements.Any())
@@ -199,19 +288,19 @@ public class ExportService
             throw new ArgumentException("Solution placements cannot be null or empty.", nameof(solutionPlacements));
         }
 
-        // 1. Generate all potential blocks from placements
+        // Generate all potential blocks from placements
         var potentialBlocks = GeneratePotentialBlocks(solutionPlacements, targetHeight);
 
-        // 2. Resolve overlaps and calculate cost
+        // Resolve overlaps and calculate cost
         var (resolvedBlocks, totalMaterialCost) = ResolveOverlaps(potentialBlocks);
 
-        // 3. Assemble the final blueprint structure
-        var blueprintRoot = AssembleFinalBlueprint(resolvedBlocks, totalMaterialCost, blueprintName);
+        // Assemble the final blueprint structure
+        var blueprintRoot = AssembleFinalBlueprint(resolvedBlocks, totalMaterialCost, blueprintName, targetHeight);
 
-        // 4. Serialize to JSON
+        // Serialize to JSON
         string json = JsonConvert.SerializeObject(blueprintRoot, Formatting.Indented, new JsonSerializerSettings
         {
-            NullValueHandling = NullValueHandling.Include // Ensure nulls are written if needed by game
+            NullValueHandling = NullValueHandling.Include // Just in case they're needed
         });
 
         return (json, totalMaterialCost, blueprintRoot.SavedTotalBlockCount);
@@ -230,13 +319,9 @@ public class ExportService
                 continue;
             }
 
-            // Determine base position using configured coordinate system
-            int baseX = placement.Col; // Default if SolverCol -> GameX
-            int baseZ = placement.Row; // Default if SolverRow -> GameZ
-            int baseY = 0; // Usually start at Y=0
-
-            // TODO: Implement proper coordinate system mapping based on _config.ExportDefaults.CoordinateSystem
-            // Example: if (_config.ExportDefaults.CoordinateSystem.SolverCol == "GameZ") baseX = placement.Col; etc.
+            int baseX = placement.Col;
+            int baseZ = placement.Row;
+            int baseY = 0;
 
             switch (mapping.Mode)
             {
@@ -247,7 +332,7 @@ public class ExportService
                     GenerateStackBasic(potentialBlocks, placement, mapping, targetHeight, baseX, baseY, baseZ);
                     break;
                 case ExportMode.StackPerCell:
-                    GenerateStackPerCell(potentialBlocks, placement, mapping, baseX, baseY, baseZ);
+                    GenerateStackPerCell(potentialBlocks, placement, mapping, targetHeight, baseX, baseY, baseZ);
                     break;
                 default:
                     Debug.WriteLine($"Warning: Unknown export mode '{mapping.Mode}' for shape '{placement.ShapeName}'.");
@@ -291,6 +376,8 @@ public class ExportService
         }
     }
 
+
+    // Not currently needed but whatever
     private void GenerateStackBasic(List<PotentialBlock> potentialBlocks, Placement placement, ShapeExportMapping mapping, int targetHeight, int baseX, int baseY, int baseZ)
     {
         if (string.IsNullOrEmpty(mapping.BlockDefKey) || mapping.HeightRange == null || mapping.HeightRange.Count != 2) return; // Invalid config
@@ -303,11 +390,10 @@ public class ExportService
 
         int height = Math.Clamp(targetHeight, mapping.HeightRange[0], mapping.HeightRange[1]);
 
-        // StackBasic assumes the placement covers only one cell, find it
+        // StackBasic assumes placement covers only one cell
         if (placement.CoveredCells.Count != 1)
         {
             Debug.WriteLine($"Warning: StackBasic mode expects exactly one covered cell for placement {placement.ShapeName}, found {placement.CoveredCells.Count}. Using first.");
-            // Or potentially iterate CoveredCells if that's intended? Needs clarification.
             if (!placement.CoveredCells.Any()) return;
         }
         var (r, c) = placement.CoveredCells.FirstOrDefault(); // Use the actual cell position
@@ -328,56 +414,92 @@ public class ExportService
         }
     }
 
-    private void GenerateStackPerCell(List<PotentialBlock> potentialBlocks, Placement placement, ShapeExportMapping mapping, int baseX, int baseY, int baseZ)
-    {
-        if (mapping.Height == null || mapping.CellStackDefinitions == null) return; // Invalid config
-        int stackHeight = mapping.Height.Value;
 
-        for (int pr = 0; pr < placement.Grid.GetLength(0); pr++)
+    private void GenerateStackPerCell(List<PotentialBlock> potentialBlocks, Placement placement, ShapeExportMapping mapping, int targetHeight, int baseX, int baseY, int baseZ)
+    {
+        if (mapping.Height == null || mapping.Height <= 0 || mapping.CellStackDefinitions == null)
         {
-            for (int pc = 0; pc < placement.Grid.GetLength(1); pc++)
+            Debug.WriteLine($"Error: Invalid StackPerCell config for shape '{placement.ShapeName}'. Missing Height or CellStackDefinitions.");
+            return;
+        }
+        int sectionHeight = mapping.Height.Value;
+        int numberOfSections = targetHeight / sectionHeight;
+
+        if (targetHeight % sectionHeight != 0)
+        {
+            Debug.WriteLine($"Warning: Target height {targetHeight} is not a multiple of section height {sectionHeight} for shape '{placement.ShapeName}'. Building {numberOfSections} full sections.");
+        }
+
+        if (numberOfSections <= 0)
+        {
+            Debug.WriteLine($"Warning: Target height {targetHeight} is less than section height {sectionHeight} for shape '{placement.ShapeName}'. No blocks generated.");
+            return;
+        }
+
+        int gridRows = placement.Grid.GetLength(0);
+        int gridCols = placement.Grid.GetLength(1);
+
+        for (int pr = 0; pr < gridRows; pr++)
+        {
+            for (int pc = 0; pc < gridCols; pc++)
             {
                 CellTypeInfo cellType = placement.Grid[pr, pc];
                 if (cellType == null || cellType.IsEmpty) continue;
 
-                if (!mapping.CellStackDefinitions.TryGetValue(cellType.Name, out var stackDef)) continue; // No stack def for this cell
-
-                if (stackDef.Count != stackHeight)
+                if (!mapping.CellStackDefinitions.TryGetValue(cellType.Name, out var stackDef))
                 {
-                    Debug.WriteLine($"Warning: Stack definition count mismatch for cell '{cellType.Name}' in shape '{placement.ShapeName}'. Expected {stackHeight}, got {stackDef.Count}.");
+                    Debug.WriteLineIf(!cellType.Name.Contains("Generic"), $"Warning: No CellStackDefinition for cell type '{cellType.Name}' in shape '{placement.ShapeName}'.");
                     continue;
                 }
 
-                for (int yOffset = 0; yOffset < stackHeight; yOffset++)
+
+                if (stackDef.Count != sectionHeight)
                 {
-                    var stackEntry = stackDef[yOffset];
-                    if (!_config.BasicBlockDefinitions.TryGetValue(stackEntry.BlockDefKey, out var basicDef))
-                    {
-                        Debug.WriteLine($"Warning: BasicBlockDefinition not found for key '{stackEntry.BlockDefKey}' in stack.");
-                        continue;
-                    }
+                    Debug.WriteLine($"Warning: Stack definition count mismatch for cell '{cellType.Name}' in shape '{placement.ShapeName}'. Expected {sectionHeight}, got {stackDef.Count}.");
+                    continue;
+                }
 
-                    LogicalOrientation orientation;
-                    if (stackEntry.OrientationSource == RotationSource.FromCell)
+                // Iterate for the number of sections determined by targetHeight
+                for (int sectionIndex = 0; sectionIndex < numberOfSections; sectionIndex++)
+                {
+                    // Iterate through the blocks defined for one section
+                    for (int yInSection = 0; yInSection < sectionHeight; yInSection++)
                     {
-                        orientation = ToLogicalOrientation(cellType.CurrentRotation);  // North, East, South, West
-                    }
-                    else if (stackEntry.FixedOrientation != null)
-                    {
-                        orientation = (LogicalOrientation)stackEntry.FixedOrientation; // Up, Down, South, West etc.
-                    }
-                    else
-                    {
-                        orientation = LogicalOrientation.North; // Fallback if neither is specified
-                    }
+                        var stackEntry = stackDef[yInSection];
+                        if (!_config.BasicBlockDefinitions.TryGetValue(stackEntry.BlockDefKey, out var basicDef))
+                        {
+                            Debug.WriteLine($"Warning: BasicBlockDefinition not found for key '{stackEntry.BlockDefKey}' in stack (Cell: {cellType.Name}).");
+                            continue;
+                        }
 
-                    if (!TryGetRotationCodeAndData(basicDef, orientation, out int rotationCode, out string? blockDataSegment)) continue;
+                        LogicalOrientation orientation;
+                        if (stackEntry.OrientationSource == RotationSource.FromCell)
+                        {
+                            orientation = ToLogicalOrientation(cellType.CurrentRotation);
+                        }
+                        else if (stackEntry.FixedOrientation.HasValue)
+                        {
+                            orientation = stackEntry.FixedOrientation.Value;
+                        }
+                        else
+                        {
+                            orientation = LogicalOrientation.North; // Fallback
+                        }
 
-                    int absX = baseX + pc;
-                    int absY = baseY + yOffset;
-                    int absZ = baseZ + pr;
+                        if (!TryGetRotationCodeAndData(basicDef, orientation, out int rotationCode, out string? blockDataSegment))
+                        {
+                            Debug.WriteLine($"Warning: Failed to get rotation/data for stack entry '{stackEntry.BlockDefKey}' with orientation {orientation}.");
+                            continue;
+                        }
 
-                    potentialBlocks.Add(new PotentialBlock(absX, absY, absZ, basicDef.BlockId, rotationCode, blockDataSegment, basicDef.MaterialCost));
+                        // Calculate absolute coordinates
+                        int absX = baseX + pc;
+                        // Base Y for this section + offset within the section
+                        int absY = baseY + (sectionIndex * sectionHeight) + yInSection;
+                        int absZ = baseZ + pr;
+
+                        potentialBlocks.Add(new PotentialBlock(absX, absY, absZ, basicDef.BlockId, rotationCode, blockDataSegment, basicDef.MaterialCost));
+                    }
                 }
             }
         }
@@ -388,7 +510,6 @@ public class ExportService
         rotationCode = 0;
         blockDataSegment = null;
         bool rotationFound = false;
-        bool dataFound = false; // Track if we found *any* data definition (even null/empty)
 
         // --- Determine Rotation Code ---
         if (basicDef.RotationMap != null && basicDef.RotationMap.TryGetValue(logicalOrientation, out int mappedCode))
@@ -401,48 +522,28 @@ public class ExportService
             rotationCode = basicDef.DefaultRotationCode.Value;
             rotationFound = true;
         }
-        // Ensure rotation is found if strictly required, otherwise use default 0
+        // Make sure rotation is found if strictly required, otherwise use default
         if (!rotationFound)
         {
-            Debug.WriteLine($"Warning: Rotation code not found for BlockId {basicDef.BlockId}, Orientation '{logicalOrientation}'. Using default 0.");
-            // Decide if proceeding with rotation 0 is acceptable, maybe return false?
-            // For now, assume 0 is okay and continue.
-            rotationFound = true; // Treat default 0 as 'found' for proceeding
+            Debug.WriteLine($"Warning: Rotation code not found for BlockId {basicDef.BlockId}, Orientation '{logicalOrientation}'. Using default.");
+            rotationFound = true;
         }
 
-
         // --- Determine Block Data Segment ---
-        // Priority: Orientation-specific map FIRST, then the general BlockData field.
+        // Priority: Orientation-specific map first, then general BlockData field
         if (basicDef.BlockDataMap != null && basicDef.BlockDataMap.TryGetValue(logicalOrientation, out var mappedData))
         {
             // Found specific data for this orientation
             blockDataSegment = mappedData;
-            dataFound = true;
         }
-        // --- CORRECTED CHECK: Check BlockData field *regardless* of IsNullOrEmpty ---
-        // The PreProcessConfig step ensures BlockData holds the final value (null, "", or resolved shared data)
-        else if (basicDef.BlockData != null) // Check if the property itself exists/was set
+        // --- Check BlockData field ---
+        else if (basicDef.BlockData != null)
         {
-            // Use the value stored in BlockData. This handles:
-            // - Loaders (BlockData = "")
-            // - Clips (BlockData = resolved shared data)
-            // - Coolers (BlockData = "")
-            // - Blocks with no data defined (BlockData = null, if PreProcess didn't assign "")
             blockDataSegment = basicDef.BlockData;
-            dataFound = true;
         }
-        // --- Removed the problematic else block ---
-
-        // If data was expected based on block type but not found, could add specific warnings here.
-        // Example:
-        // if (!dataFound && basicDef.BlockId == 364) // Ammo Intake expects data
-        // {
-        //     Debug.WriteLine($"Warning: BlockDataMap entry missing for AmmoIntake (ID {basicDef.BlockId}) orientation '{logicalOrientation}'.");
-        // }
 
 
-        // Return true if we successfully determined a rotation code.
-        // Data segment being null/empty is handled by the caller or AssembleFinalBlueprint.
+        // Return true if rotation code successfully determined
         return rotationFound;
     }
 
@@ -452,16 +553,15 @@ public class ExportService
     {
         var resolvedBlocks = new Dictionary<(int X, int Y, int Z), ResolvedBlockInfo>();
 
-        // Iterate and simply overwrite any existing entry for the coordinate.
-        // The last block processed for a given coordinate will be the one stored.
+        // Iterate - overwrite any existing entry for the coordinate.
+        // Last block processed for a given coordinate will be the one stored
         foreach (var potential in potentialBlocks)
         {
             var coord = (potential.X, potential.Y, potential.Z);
-            // Unconditionally add or overwrite the entry.
             resolvedBlocks[coord] = new ResolvedBlockInfo(potential.BlockId, potential.RotationCode, potential.BlockDataSegment, potential.Cost);
         }
 
-        // Calculate total cost AFTER resolution by summing costs of the final blocks.
+        // Calculate total cost after resolution 
         double totalMaterialCost = 0.0;
         foreach (var resolvedInfo in resolvedBlocks.Values)
         {
@@ -472,13 +572,11 @@ public class ExportService
     }
 
 
-    private BlueprintRoot AssembleFinalBlueprint(Dictionary<(int X, int Y, int Z), ResolvedBlockInfo> resolvedBlocks, double totalMaterialCost, string blueprintName)
+    private BlueprintRoot AssembleFinalBlueprint(Dictionary<(int X, int Y, int Z), ResolvedBlockInfo> resolvedBlocks, double totalMaterialCost, string blueprintName, int blueprintHeight)
     {
-        // Handle empty case first
         if (!resolvedBlocks.Any())
         {
             Debug.WriteLine("AssembleFinalBlueprint: No resolved blocks found, returning empty blueprint.");
-            // Return a minimal valid structure
             return new BlueprintRoot
             {
                 Name = blueprintName,
@@ -492,7 +590,7 @@ public class ExportService
                     BlockCount = 0,
                     AliveCount = 0,
                     MinCords = "0,0,0",
-                    MaxCords = "0,0,0", // Or maybe 1,1,1? Check game behavior for empty.
+                    MaxCords = "0,0,0",
                     VehicleData = _config.ExportDefaults.VehicleData,
                     AuthorDetails = new AuthorDetails()
                 }
@@ -505,7 +603,7 @@ public class ExportService
         var finalBlockIds = new List<int>(resolvedBlocks.Count);
         var finalBlockRotations = new List<int>(resolvedBlocks.Count);
         var finalBlockColorIndices = new List<int>(resolvedBlocks.Count);
-        var blockDataStream = new MemoryStream(); // Use MemoryStream to accumulate bytes
+        var blockDataStream = new MemoryStream(); // MemoryStream to accumulate bytes
         var usedBlockIds = new HashSet<int>();
         int currentBlockIndex = 0; // Index for modifying BlockData
 
@@ -514,7 +612,7 @@ public class ExportService
         int minY = sortedCoords.Min(k => k.Y);
         int minZ = sortedCoords.Min(k => k.Z);
         int maxX = sortedCoords.Max(k => k.X);
-        int maxY = sortedCoords.Max(k => k.Y);
+        int maxY = blueprintHeight;
         int maxZ = sortedCoords.Max(k => k.Z);
 
         // --- Process Blocks ---
@@ -528,6 +626,7 @@ public class ExportService
             int relZ = coord.Z - minZ;
 
             // Add to final lists
+            //                         yes this is weird
             finalBlockPositions.Add($"{relZ - 0.5 * maxZ},{relY},{relX}");
             finalBlockIds.Add(blockInfo.BlockId);
             finalBlockRotations.Add(blockInfo.RotationCode);
@@ -537,19 +636,20 @@ public class ExportService
             // --- Process BlockData ---
             if (!string.IsNullOrEmpty(blockInfo.BlockDataSegment))
             {
+                // BlockData accumulation - adapted method extracted from FTD using dnspy
                 try
                 {
-                    // Decode the Base64 segment from the resolved info
+                    // Decode B64 segment from resolved info
                     byte[] exampleBytes = Convert.FromBase64String(blockInfo.BlockDataSegment);
 
-                    // Verify length (at least 3 bytes for the index)
+                    // Check length (at least 3 bytes for the index)
                     if (exampleBytes.Length >= 3)
                     {
                         // Modify the index (first 3 bytes) in a copy
-                        byte[] modifiedBytes = (byte[])exampleBytes.Clone(); // Work on a copy
+                        byte[] modifiedBytes = (byte[])exampleBytes.Clone();
                         WriteUInt24LittleEndian(modifiedBytes, 0, (uint)currentBlockIndex);
 
-                        // Append the modified bytes to the stream
+                        // Append modified bytes to stream
                         blockDataStream.Write(modifiedBytes, 0, modifiedBytes.Length);
                     }
                     else
@@ -560,17 +660,16 @@ public class ExportService
                 catch (FormatException ex)
                 {
                     Debug.WriteLine($"Error: Invalid Base64 string in BlockDataSegment for BlockId {blockInfo.BlockId} at index {currentBlockIndex}. Data: '{blockInfo.BlockDataSegment}'. Error: {ex.Message}");
-                    // Skip appending data for this block
+                    // Skip block
                 }
             }
-            // --- End Process BlockData ---
 
-            currentBlockIndex++; // Increment for the next block
+            currentBlockIndex++; // Increment for next block
         }
 
         // --- Finalize BlockData String ---
         string finalBlockDataString = Convert.ToBase64String(blockDataStream.ToArray());
-        blockDataStream.Dispose(); // Dispose the stream
+        blockDataStream.Dispose();
 
         // --- Build Item Dictionary ---
         var itemDictionary = new Dictionary<string, string>();
@@ -604,11 +703,11 @@ public class ExportService
                 BlockRotations = finalBlockRotations,
                 BlockIds = finalBlockIds,
                 BlockColorIndices = finalBlockColorIndices,
-                BlockData = finalBlockDataString, // Use the final concatenated string
+                BlockData = finalBlockDataString, // Use final concatenated string
                 TotalBlockCount = resolvedBlocks.Count,
                 BlockCount = resolvedBlocks.Count,
                 AliveCount = resolvedBlocks.Count,
-                MinCords = $"{minX - minX},{minY - minY},{minZ - minZ}", // Always "0,0,0"
+                MinCords = "0,0,0",
                 MaxCords = $"{maxX - minX + 1},{maxY - minY + 1},{maxZ - minZ + 1}",
                 blueprintName = blueprintName,
                 VehicleData = _config.ExportDefaults.VehicleData,
@@ -624,7 +723,7 @@ public class ExportService
     {
         if (offset + 3 > buffer.Length)
             throw new ArgumentOutOfRangeException(nameof(offset), "Offset is too large for the buffer size.");
-        if (value > 0xFFFFFF) // Ensure value fits in 24 bits
+        if (value > 0xFFFFFF) // Make sure value fits in 24 bits
             throw new ArgumentOutOfRangeException(nameof(value), "Value exceeds maximum for 24 bits.");
 
         buffer[offset] = (byte)(value & 0xFF);          // Least significant byte

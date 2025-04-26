@@ -12,9 +12,6 @@
                DefaultButton="Primary"
                CornerRadius="8"
                MinWidth="500">
-    <!-- DataContext removed from here -->
-    <!-- d:DataContext="{d:DesignInstance Type=viewmodels:ExportDialogViewModel}" -->
-    <!-- Keep design-time context if desired -->
     <StackPanel Spacing="15">
         <TextBlock Text="{Binding PlacementSummaryText, Mode=OneWay}"
                    TextWrapping="Wrap" />
@@ -25,24 +22,20 @@
             <NumberBox Value="{Binding TargetHeight, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                        Minimum="{Binding MinHeight, Mode=OneWay}"
                        Maximum="{Binding MaxHeight, Mode=OneWay}"
+                       SmallChange="{Binding HeightStep, Mode=OneWay}"
                        SpinButtonPlacementMode="Inline"
-                       SmallChange="1"
-                       Width="140"
-                       IsEnabled="{Binding IsCalculatingCost, Converter={StaticResource InverseBoolConverter}}" />
-            <!-- Ensure InverseBoolConverter is defined in App.xaml or merged dictionary -->
+                       Width="140" />
         </StackPanel>
-        <Grid MinHeight="25">
-            <!-- Cost Text -->
-            <TextBlock Text="{Binding TotalCostText, Mode=OneWay}"
-                       VerticalAlignment="Center"
-                       HorizontalAlignment="Left" />
-            <!-- Loading Indicator -->
-            <ProgressRing IsActive="{Binding IsCalculatingCost, Mode=OneWay}"
-                          Width="20"
-                          Height="20"
-                          HorizontalAlignment="Right"
-                          VerticalAlignment="Center" />
-        </Grid>
+        <!-- Simplified Cost Display -->
+        <TextBlock Text="{Binding TotalCostText, Mode=OneWay}"
+                   VerticalAlignment="Center"
+                   HorizontalAlignment="Left"
+                   MinHeight="25" />
+        <TextBlock Text="{Binding TotalBlockCountText, Mode=OneWay}"
+                   VerticalAlignment="Center"
+                   HorizontalAlignment="Left"
+                   MinHeight="25" />
+        <!-- Keep MinHeight for layout consistency -->
+        <!-- Removed ProgressRing -->
     </StackPanel>
 </ContentDialog>
-<!-- END OF FILE Controls/ExportDialog.xaml -->

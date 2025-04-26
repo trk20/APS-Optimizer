@@ -49,3 +49,4 @@ public record SolverIterationLog(
     TimeSpan Duration,
     bool IsSatisfiable
 );
+
