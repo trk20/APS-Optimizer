@@ -9,15 +9,20 @@ using WinRT.Interop;
 using Windows.Storage.Pickers;
 using Windows.UI;
 using Uno.Extensions.Specialized;
+using APS_Optimizer_V3.Services.Export;
+using APS_Optimizer_V3.Controls;
 namespace APS_Optimizer_V3.ViewModels;
 
 public partial class MainViewModel : ViewModelBase, IDisposable
 {
     // --- Services ---
     private readonly SolverService _solverService;
+    private readonly ExportService _exportService;
 
     // Store the logs from the last solve operation
     private ImmutableList<SolverIterationLog>? _lastSolverLogs;
+
+    private ImmutableList<Placement>? _lastSolution;
 
     // --- UI State & Timing ---
     [ObservableProperty]
@@ -181,6 +186,16 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public MainViewModel()
     {
         _solverService = new SolverService();
+        try
+        {
+            ExportConfiguration exportConfig = ConfigurationLoader.LoadExportConfiguration();
+            _exportService = new ExportService(exportConfig);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"FATAL: Failed to initialize ExportService: {ex}");
+            throw;
+        }
         AvailableShapes.CollectionChanged += AvailableShapes_CollectionChanged;
         RebuildGrids(SelectedTemplate);
         InitializeShapes();
@@ -511,6 +526,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
 
         IsSolving = true;
+        _lastSolution = null;
         CurrentSolveTime = "00:00.000";
         ResultTitle = "Result: (Solving...)";
         ResultDisplayText = "";
@@ -573,7 +589,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             if (result.Success && result.SolutionPlacements != null && result.SolutionPlacements.Any())
             {
                 ResultTitle = $"Result: Success (Took {finalTimeStr})";
-                ResultDisplayText = GetPlacementCountPerNameText(result.SolutionPlacements.ToList());
+                ResultDisplayText = "Placed " + GetPlacementCountPerNameText(result.SolutionPlacements.ToList());
+                _lastSolution = result.SolutionPlacements;
+                Debug.WriteLine($"Last solution now has {_lastSolution.Count} placements");
                 DisplaySolution(result.SolutionPlacements);
             }
             else
@@ -593,10 +611,98 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand]
-    public async Task Export()
+    private async Task ShowExportDialogAsync()
     {
-        await Task.CompletedTask;
-        Debug.WriteLine("Export command executed (placeholder).");
+        Debug.WriteLine("Showing export dialog");
+
+        if (_lastSolution == null || !_lastSolution.Any())
+        {
+            Debug.WriteLine("Last solution was null or empty");
+            return;
+        }
+
+        // 1. Prepare data for ViewModel
+        string summary = GetPlacementCountPerNameText(_lastSolution.ToList());
+        // TODO: Determine actual Min/Max height based on config or requirements
+        int minExportHeight = 1;
+        int maxExportHeight = 8;
+
+        // 2. Create ViewModel and Dialog
+        var dialogViewModel = new ExportDialogViewModel(
+            _lastSolution,
+            _exportService,
+            summary,
+            minExportHeight,
+            maxExportHeight
+        );
+
+        var dialog = new ExportDialog
+        {
+            DataContext = dialogViewModel,
+            XamlRoot = ((App)Application.Current).MainWindow.Content!.XamlRoot // IMPORTANT: Set XamlRoot for ContentDialog
+        };
+
+        // Ensure XamlRoot is available
+        if (dialog.XamlRoot == null)
+        {
+            Debug.WriteLine("Error: Cannot show ExportDialog - XamlRoot is null.");
+            // Show an error message to the user via a different mechanism if possible
+            return;
+        }
+
+
+        // 3. Show Dialog and Wait for Result
+        var result = await dialog.ShowAsync();
+
+        // 4. Handle Result
+        if (result == ContentDialogResult.Primary)
+        {
+            // User clicked "Save"
+            int finalHeight = dialogViewModel.TargetHeight; // Get selected height
+            string blueprintName = $"Generated_{finalHeight}m"; // Example name
+
+            (string jsonResult, double totalCost, int blockCount) exportData;
+            try
+            {
+                // Generate the final JSON using the selected height
+                exportData = _exportService.GenerateBlueprintJson(_lastSolution, finalHeight, blueprintName);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error during final blueprint generation: {ex}");
+                // TODO: Show error message dialog
+                return;
+            }
+
+            // 5. Trigger File Save Picker
+            try
+            {
+                var savePicker = new FileSavePicker();
+                InitializeWithWindow.Initialize(savePicker, WindowNative.GetWindowHandle(((App)Application.Current).MainWindow));
+
+                savePicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+                savePicker.FileTypeChoices.Add("Blueprint", new List<string>() { ".blueprint" });
+                savePicker.SuggestedFileName = $"APS_Export_{GridHeight}x{GridWidth}_{finalHeight}m_{DateTime.Now:yyyyMMdd_HHmmss}";
+
+                StorageFile file = await savePicker.PickSaveFileAsync();
+                if (file != null)
+                {
+                    await FileIO.WriteTextAsync(file, exportData.jsonResult);
+                    Debug.WriteLine($"Blueprint saved to: {file.Path}");
+                    // TODO: Optionally show success message dialog
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error saving blueprint file: {ex}");
+                // TODO: Show error message dialog
+            }
+        }
+        else
+        {
+            // User cancelled
+            Debug.WriteLine("Export cancelled by user.");
+        }
     }
 
     private string GetPlacementCountPerNameText(List<Placement> placements)
@@ -612,7 +718,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             placementStrings.Add($"{placementCount}x {shapeName}");
         }
 
-        return "Placed: " + string.Join(", ", placementStrings);
+        return string.Join(", ", placementStrings);
     }
 
     private void DisplaySolution(ImmutableList<Placement> solutionPlacements)

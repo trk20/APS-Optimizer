@@ -1,0 +1,48 @@
+<ContentDialog x:Class="APS_Optimizer_V3.Controls.ExportDialog"
+               xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+               xmlns:local="using:APS_Optimizer_V3.Controls"
+               xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+               xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+               xmlns:viewmodels="using:APS_Optimizer_V3.ViewModels"
+               mc:Ignorable="d"
+               Title="Export To Prefab"
+               PrimaryButtonText="Save"
+               CloseButtonText="Cancel"
+               DefaultButton="Primary"
+               CornerRadius="8"
+               MinWidth="500">
+    <!-- DataContext removed from here -->
+    <!-- d:DataContext="{d:DesignInstance Type=viewmodels:ExportDialogViewModel}" -->
+    <!-- Keep design-time context if desired -->
+    <StackPanel Spacing="15">
+        <TextBlock Text="{Binding PlacementSummaryText, Mode=OneWay}"
+                   TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal"
+                    Spacing="10">
+            <TextBlock Text="Target Height:"
+                       VerticalAlignment="Center" />
+            <NumberBox Value="{Binding TargetHeight, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                       Minimum="{Binding MinHeight, Mode=OneWay}"
+                       Maximum="{Binding MaxHeight, Mode=OneWay}"
+                       SpinButtonPlacementMode="Inline"
+                       SmallChange="1"
+                       Width="140"
+                       IsEnabled="{Binding IsCalculatingCost, Converter={StaticResource InverseBoolConverter}}" />
+            <!-- Ensure InverseBoolConverter is defined in App.xaml or merged dictionary -->
+        </StackPanel>
+        <Grid MinHeight="25">
+            <!-- Cost Text -->
+            <TextBlock Text="{Binding TotalCostText, Mode=OneWay}"
+                       VerticalAlignment="Center"
+                       HorizontalAlignment="Left" />
+            <!-- Loading Indicator -->
+            <ProgressRing IsActive="{Binding IsCalculatingCost, Mode=OneWay}"
+                          Width="20"
+                          Height="20"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Center" />
+        </Grid>
+    </StackPanel>
+</ContentDialog>
+<!-- END OF FILE Controls/ExportDialog.xaml -->
