@@ -14,17 +14,50 @@ public partial class CellViewModel : ObservableObject
     private static readonly Brush DefaultShapeBackground = new SolidColorBrush(Colors.DarkCyan);
     private static readonly Brush BlackBackground = new SolidColorBrush(Colors.Black);
 
-    [ObservableProperty] private int _row;
-    [ObservableProperty] private int _col;
+    private int _row;
+    public int Row
+    {
+        get => _row;
+        set => SetProperty(ref _row, value);
+    }
+
+    private int _col;
+    public int Col
+    {
+        get => _col;
+        set => SetProperty(ref _col, value);
+    }
+
     private Action<CellViewModel>? _onClickAction;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CellIconElement))]
-    [NotifyPropertyChangedFor(nameof(Background))]
     private CellTypeInfo _displayedCellType = CellTypeInfo.EmptyCellType;
+    public CellTypeInfo DisplayedCellType
+    {
+        get => _displayedCellType;
+        set
+        {
+            if (SetProperty(ref _displayedCellType, value))
+            {
+                OnPropertyChanged(nameof(CellIconElement));
+                OnPropertyChanged(nameof(Background));
+                UpdateVisuals();
+            }
+        }
+    }
 
-    [ObservableProperty] private Brush _background = DefaultEmptyBackground;
-    [ObservableProperty] private UIElement? _cellIconElement = null;
+    private Brush _background = DefaultEmptyBackground;
+    public Brush Background
+    {
+        get => _background;
+        private set => SetProperty(ref _background, value);
+    }
+
+    private UIElement? _cellIconElement = null;
+    public UIElement? CellIconElement
+    {
+        get => _cellIconElement;
+        private set => SetProperty(ref _cellIconElement, value);
+    }
 
     public CellViewModel(int row, int col, Action<CellViewModel>? onClickAction, CellTypeInfo? type)
     {
@@ -131,9 +164,4 @@ public partial class CellViewModel : ObservableObject
 
     public void SetBlocked() { DisplayedCellType = CellTypeInfo.BlockedCellType; }
     public void SetEmpty() { DisplayedCellType = CellTypeInfo.EmptyCellType; }
-
-    partial void OnDisplayedCellTypeChanged(CellTypeInfo value)
-    {
-        UpdateVisuals(); // Logic moved here
-    }
 }

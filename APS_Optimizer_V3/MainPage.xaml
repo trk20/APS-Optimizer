@@ -132,7 +132,7 @@
                         <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                                       VerticalScrollBarVisibility="Disabled"
                                       HorizontalAlignment="Center"
-                                      VerticalAlignment="Center">
+                                      VerticalAlignment="Top">
                             <controls:CellGridControl ItemsSource="{Binding ResultGridCells, Mode=OneWay}"
                                                       CellSize="{Binding CellSize, Mode=OneWay}"
                                                       CellSpacing="{Binding CellSpacing, Mode=OneWay}"

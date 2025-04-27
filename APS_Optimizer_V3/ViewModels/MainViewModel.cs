@@ -25,9 +25,19 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private ImmutableList<Placement>? _lastSolution;
 
     // --- UI State & Timing ---
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(SolveCommand))] // Disable Solve button when solving
     private bool _isSolving = false;
+    public bool IsSolving
+    {
+        get => _isSolving;
+        private set // Often controlled internally
+        {
+            if (SetProperty(ref _isSolving, value))
+            {
+                // Manually notify dependent commands
+                SolveCommand.NotifyCanExecuteChanged();
+            }
+        }
+    }
 
     private string _currentSolveTime = "00:00.000";
     public string CurrentSolveTime
@@ -36,13 +46,17 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         set => SetProperty(ref _currentSolveTime, value);
     }
 
-    [ObservableProperty] private string _resultTitle = "Result";
+    private string _resultTitle = "Result";
+    public string ResultTitle { get => _resultTitle; private set => SetProperty(ref _resultTitle, value); }
 
-    [ObservableProperty]
     private string _solverProgressText = "";
+    public string SolverProgressText
+    {
+        get => _solverProgressText; private set => SetProperty(ref _solverProgressText, value);
+    }
 
-    [ObservableProperty]
     private string _resultDisplayText = "";
+    public string ResultDisplayText { get => _resultDisplayText; private set => SetProperty(ref _resultDisplayText, value); }
 
     private Stopwatch? _solveStopwatch;
     private DispatcherTimer? _stopwatchTimer; // Timer for UI updates of stopwatch
@@ -137,17 +151,38 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
 
     // --- Dependent/Calculated Properties ---
-    [ObservableProperty]
     private double _cellSize = 15.0;
-
-    [ObservableProperty]
+    public double CellSize
+    {
+        get => _cellSize;
+        set
+        {
+            if (SetProperty(ref _cellSize, value))
+            {
+                OnPropertyChanged(nameof(CalculatedGridTotalWidth));
+                OnPropertyChanged(nameof(CalculatedGridTotalHeight));
+            }
+        }
+    }
     private double _cellSpacing = 0.0;
+    public double CellSpacing
+    {
+        get => _cellSpacing;
+        set
+        {
+            if (SetProperty(ref _cellSpacing, value))
+            {
+                OnPropertyChanged(nameof(CalculatedGridTotalWidth));
+                OnPropertyChanged(nameof(CalculatedGridTotalHeight));
+            }
+        }
+    }
 
     public const double PreviewCellSize = 20.0;
     public const double PreviewCellSpacing = 1.0;
 
-    public double CalculatedGridTotalWidth => GridWidth <= 0 ? CellSize : (GridWidth * CellSize) + (Math.Max(0, GridWidth) * CellSpacing) + 3;
-    public double CalculatedGridTotalHeight => GridHeight <= 0 ? CellSize : (GridHeight * CellSize) + (Math.Max(0, GridHeight) * CellSpacing) + 3;
+    public double CalculatedGridTotalWidth => GridWidth <= 0 ? CellSize : (GridWidth * CellSize) + (Math.Max(0, GridWidth) * CellSpacing) + 2;
+    public double CalculatedGridTotalHeight => GridHeight <= 0 ? CellSize : (GridHeight * CellSize) + (Math.Max(0, GridHeight) * CellSpacing) + 1;
 
     private CancellationTokenSource? _gridWidthDebounceCts;
     private CancellationTokenSource? _gridHeightDebounceCts;
@@ -171,11 +206,19 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     }
 
     // --- Collections ---
-    [ObservableProperty]
     private ObservableCollection<CellViewModel> _gridEditorCells = new();
+    public ObservableCollection<CellViewModel> GridEditorCells
+    {
+        get => _gridEditorCells;
+        private set => SetProperty(ref _gridEditorCells, value); // Usually set internally
+    }
 
-    [ObservableProperty]
     private ObservableCollection<CellViewModel> _resultGridCells = new();
+    public ObservableCollection<CellViewModel> ResultGridCells
+    {
+        get => _resultGridCells;
+        private set => SetProperty(ref _resultGridCells, value); // Usually set internally
+    }
     public ObservableCollection<ShapeViewModel> AvailableShapes { get; } = new();
 
     // --- Constructor ---
@@ -209,17 +252,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         //Debug.WriteLine($"Symmetry selected: {value}");
         OnPropertyChanged(nameof(SelectedSymmetryType));
-    }
-
-    partial void OnCellSizeChanged(double value)
-    {
-        OnPropertyChanged(nameof(CalculatedGridTotalWidth));
-        OnPropertyChanged(nameof(CalculatedGridTotalHeight));
-    }
-    partial void OnCellSpacingChanged(double value)
-    {
-        OnPropertyChanged(nameof(CalculatedGridTotalWidth));
-        OnPropertyChanged(nameof(CalculatedGridTotalHeight));
     }
 
 
