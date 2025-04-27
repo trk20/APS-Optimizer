@@ -52,6 +52,23 @@
         "/consoleloggerparameters:NoSummary"
       ],
       "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "build-windows",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "build",
+        "${workspaceFolder}/APS_Optimizer_V3/APS_Optimizer_V3.csproj", // Adjust path if needed
+        "/property:TargetFramework=net8.0-windows10.0.26100",
+        "/property:GenerateFullPaths=true",
+        "/consoleloggerparameters:NoSummary"
+      ],
+      "problemMatcher": "$msCompile",
+      "group": {
+        "kind": "build",
+        "isDefault": false // Don't make it the default build task unless intended
+      }
     }
   ]
 }

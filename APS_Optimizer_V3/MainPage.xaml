@@ -1,5 +1,4 @@
-﻿<!-- MainPage.xaml -->
-<Page x:Class="APS_Optimizer_V3.MainPage"
+﻿<Page x:Class="APS_Optimizer_V3.MainPage"
       x:Name="MainPageRoot"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -53,7 +52,9 @@
                             Width="{Binding CalculatedGridTotalWidth, Mode=OneWay}"
                             Height="{Binding CalculatedGridTotalHeight, Mode=OneWay}">
                         <ScrollViewer HorizontalScrollBarVisibility="Disabled"
-                                      VerticalScrollBarVisibility="Disabled">
+                                      VerticalScrollBarVisibility="Disabled"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center">
                             <controls:CellGridControl ItemsSource="{Binding GridEditorCells, Mode=OneWay}"
                                                       CellSize="{Binding CellSize, Mode=OneWay}"
                                                       CellSpacing="{Binding CellSpacing, Mode=OneWay}"
@@ -129,7 +130,9 @@
                             Width="{Binding CalculatedGridTotalWidth, Mode=OneWay}"
                             Height="{Binding CalculatedGridTotalHeight, Mode=OneWay}">
                         <ScrollViewer HorizontalScrollBarVisibility="Disabled"
-                                      VerticalScrollBarVisibility="Disabled">
+                                      VerticalScrollBarVisibility="Disabled"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center">
                             <controls:CellGridControl ItemsSource="{Binding ResultGridCells, Mode=OneWay}"
                                                       CellSize="{Binding CellSize, Mode=OneWay}"
                                                       CellSpacing="{Binding CellSpacing, Mode=OneWay}"

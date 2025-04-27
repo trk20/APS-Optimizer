@@ -1,4 +1,5 @@
 using Uno.Resizetizer;
+using WinRT.Interop;
 
 namespace APS_Optimizer_V3;
 
@@ -9,7 +10,8 @@ public partial class App : Application
         InitializeComponent();
     }
 
-    public Window MainWindow { get; private set; }
+    public Window? MainWindow { get; private set; }
+    public static IntPtr WindowHandle { get; private set; }
     protected IHost? Host { get; private set; }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
@@ -49,6 +51,9 @@ public partial class App : Application
         {
             rootFrame.Navigate(typeof(MainPage), args.Arguments);
         }
+
+        WindowHandle = WindowNative.GetWindowHandle(MainWindow);
+
         MainWindow.Activate();
     }
 }

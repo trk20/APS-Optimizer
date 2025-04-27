@@ -6,16 +6,18 @@
     <UnoSingleProject>true</UnoSingleProject>
 
     <!-- Display name -->
-    <ApplicationTitle>APS_Optimizer_V3</ApplicationTitle>
+    <ApplicationTitle>APS Optimizer</ApplicationTitle>
     <!-- App Identifier -->
     <ApplicationId>com.trk20_FTD.APS</ApplicationId>
     <!-- Versions -->
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <ApplicationVersion>1</ApplicationVersion>
     <!-- Package Publisher -->
-    <ApplicationPublisher>APS_Optimizer_V3</ApplicationPublisher>
+    <ApplicationPublisher>trk20</ApplicationPublisher>
     <!-- Package Description -->
     <Description>APS_Optimizer_V3 powered by Uno Platform.</Description>
+    
+    <WindowsPackageType>None</WindowsPackageType>
     <!--
       If you encounter this error message:
 
@@ -44,7 +46,7 @@
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="ExportConfig.json" />
-    <Content Include="Assets\Images\generic.png" >
+    <Content Include="Assets\Images\generic.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Assets\Images\clear.png">
@@ -53,15 +55,18 @@
     <Content Include="Assets\Images\blocked.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="Assets\Images\loader.png" >
+    <Content Include="Assets\Images\loader.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Assets\Images\clip.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="Assets\Images\cooler.png" >
+    <Content Include="Assets\Images\cooler.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>
 
 </Project>

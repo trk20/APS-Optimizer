@@ -132,9 +132,8 @@ public partial class CellViewModel : ObservableObject
     public void SetBlocked() { DisplayedCellType = CellTypeInfo.BlockedCellType; }
     public void SetEmpty() { DisplayedCellType = CellTypeInfo.EmptyCellType; }
 
-    protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
+    partial void OnDisplayedCellTypeChanged(CellTypeInfo value)
     {
-        base.OnPropertyChanged(e);
-        if (e.PropertyName == nameof(DisplayedCellType)) { UpdateVisuals(); }
+        UpdateVisuals(); // Logic moved here
     }
 }

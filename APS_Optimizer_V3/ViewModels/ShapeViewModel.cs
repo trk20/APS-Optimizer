@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using APS_Optimizer_V3.Helpers;
 using Microsoft.UI;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Foundation;
 
 namespace APS_Optimizer_V3.ViewModels;
@@ -118,6 +119,8 @@ public partial class ShapeViewModel : ObservableObject, IDisposable
                     try
                     {
                         var iconUri = new Uri($"ms-appx:///Assets/{type.IconPath}");
+                        var bitmapImage = new BitmapImage();
+                        bitmapImage.UriSource = iconUri;
                         var cellBorder = new Border
                         {
                             Background = PreviewShapeBackground,
@@ -130,12 +133,12 @@ public partial class ShapeViewModel : ObservableObject, IDisposable
                         };
                         var image = new Image()
                         {
-                            Source = iconUri,
+                            Source = bitmapImage,
                             Stretch = Stretch.Uniform,
                             HorizontalAlignment = HorizontalAlignment.Center,
                             VerticalAlignment = VerticalAlignment.Center,
                         };
-                        cellBorder.Add(image);
+                        cellBorder.Child = image;
                         if (type.IsRotatable && type.CurrentRotation != RotationDirection.North)
                         {
                             var rotateTransform = new RotateTransform
@@ -158,14 +161,9 @@ public partial class ShapeViewModel : ObservableObject, IDisposable
         PreviewGrid = newGrid; // Update the UI property
     }
 
-    // --- Property Change Notification ---
-    protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
+    partial void OnIsEnabledChanged(bool value)
     {
-        base.OnPropertyChanged(e);
-        if (e.PropertyName == nameof(IsEnabled))
-        {
-            IsEnabledChanged?.Invoke(this, EventArgs.Empty);
-        }
+        IsEnabledChanged?.Invoke(this, EventArgs.Empty); // Logic moved here
     }
 
     private bool _disposed = false;

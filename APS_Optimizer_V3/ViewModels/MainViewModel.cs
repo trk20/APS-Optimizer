@@ -146,8 +146,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public const double PreviewCellSize = 20.0;
     public const double PreviewCellSpacing = 1.0;
 
-    public double CalculatedGridTotalWidth => GridWidth <= 0 ? CellSize : (GridWidth * CellSize) + (Math.Max(0, GridWidth) * CellSpacing) + 2;
-    public double CalculatedGridTotalHeight => GridHeight <= 0 ? CellSize : (GridHeight * CellSize) + (Math.Max(0, GridHeight) * CellSpacing) + 2;
+    public double CalculatedGridTotalWidth => GridWidth <= 0 ? CellSize : (GridWidth * CellSize) + (Math.Max(0, GridWidth) * CellSpacing) + 3;
+    public double CalculatedGridTotalHeight => GridHeight <= 0 ? CellSize : (GridHeight * CellSize) + (Math.Max(0, GridHeight) * CellSpacing) + 3;
 
     private CancellationTokenSource? _gridWidthDebounceCts;
     private CancellationTokenSource? _gridHeightDebounceCts;
@@ -627,7 +627,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         var dialog = new ExportDialog
         {
             DataContext = dialogViewModel,
-            XamlRoot = ((App)Application.Current).MainWindow.Content!.XamlRoot
+            XamlRoot = ((App)Application.Current).MainWindow!.Content!.XamlRoot
         };
 
         if (dialog.XamlRoot == null)
