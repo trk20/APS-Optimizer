@@ -84,26 +84,6 @@
       // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
       "console": "internalConsole",
       "stopAtEntry": false
-    },
-    {
-      "name": "Uno Platform Windows Debug", // Distinct name
-      "type": "coreclr", // Still a .NET Core app
-      "request": "launch",
-      "preLaunchTask": "build-windows", // Reference a task that builds the Windows target (see tasks.json below)
-      // --- POINT TO THE WINDOWS DLL ---
-      // Adjust the TFM folder name if it's slightly different (e.g., includes RID like win10-x64)
-      "program": "${workspaceFolder}/APS_Optimizer_V3/bin/Debug/net8.0-windows10.0.26100/APS_Optimizer_V3.dll",
-      "args": [],
-      // --- SET WORKING DIRECTORY TO WINDOWS OUTPUT ---
-      // This is where the app will run from, crucial for finding relative files like cryptominisat5.exe
-      // Adjust if your output has an RID subfolder like win10-x64
-      "cwd": "${workspaceFolder}/APS_Optimizer_V3/bin/Debug/net8.0-windows10.0.26100/",
-      "env": {
-        "DOTNET_MODIFIABLE_ASSEMBLIES": "debug"
-      },
-      "console": "internalConsole",
-      "stopAtEntry": false
-      // "launchSettingsProfile" is usually omitted for non-desktop launches
     }
   ]
 }

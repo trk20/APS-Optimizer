@@ -35,7 +35,5 @@
                    VerticalAlignment="Center"
                    HorizontalAlignment="Left"
                    MinHeight="25" />
-        <!-- Keep MinHeight for layout consistency -->
-        <!-- Removed ProgressRing -->
     </StackPanel>
 </ContentDialog>

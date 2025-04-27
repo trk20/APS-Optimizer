@@ -8,10 +8,8 @@
              xmlns:converters="using:APS_Optimizer_V3.Converters"
              mc:Ignorable="d"
              x:Name="RootGridControl">
-    <!-- ItemsRepeater to display the cells -->
     <ItemsRepeater ItemsSource="{x:Bind ItemsSource, Mode=OneWay}">
         <ItemsRepeater.Layout>
-            <!-- Uniform grid layout, size/spacing controlled by properties -->
             <UniformGridLayout MinItemWidth="{x:Bind CellSize, Mode=OneWay}"
                                MinItemHeight="{x:Bind CellSize, Mode=OneWay}"
                                Orientation="Horizontal"
@@ -24,7 +22,6 @@
             <DataTemplate x:DataType="viewmodels:CellViewModel">
                 <Grid MinWidth="{Binding CellSize, ElementName=RootGridControl, Mode=OneWay}"
                       MinHeight="{Binding CellSize, ElementName=RootGridControl, Mode=OneWay}">
-                    <!-- === EDITOR CELL TEMPLATE (Button) === -->
                     <Button Command="{Binding CellClickedCommand}"
                             Background="{Binding Background, Mode=OneWay}"
                             Padding="0"
@@ -35,7 +32,6 @@
                             HorizontalAlignment="Stretch"
                             IsEnabled="{Binding DataContext.IsSolving, ElementName=RootGridControl, Converter={StaticResource InverseBoolToVis}, Mode=OneWay}"
                             Visibility="{Binding IsEditorGrid, ElementName=RootGridControl, Converter={StaticResource BoolToVis}, Mode=OneWay}">
-                        <!-- Editor cells generally don't show icons, but ContentControl can stay -->
                         <ContentControl Content="{Binding CellIconElement, Mode=OneWay}"
                                         HorizontalAlignment="Stretch"
                                         VerticalAlignment="Stretch"
@@ -43,7 +39,6 @@
                                         VerticalContentAlignment="Stretch"
                                         IsHitTestVisible="False" />
                     </Button>
-                    <!-- === STATIC/RESULT CELL TEMPLATE (Border) === -->
                     <Border Background="{Binding Background, Mode=OneWay}"
                             BorderThickness="0.5"
                             BorderBrush="DarkGray"

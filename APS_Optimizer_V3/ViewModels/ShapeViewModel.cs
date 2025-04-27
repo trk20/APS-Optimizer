@@ -7,14 +7,37 @@ using Windows.Foundation;
 namespace APS_Optimizer_V3.ViewModels;
 public partial class ShapeViewModel : ObservableObject, IDisposable
 {
-    [ObservableProperty] private string _name = "Unnamed Shape";
+    private string _name = "Unnamed Shape";
+    public string Name
+    {
+        get => _name;
+        private set => SetProperty(ref _name, value); // Assume name set only in constructor
+    }
+
     private int _currentRotationIndex = 0;
     private List<CellTypeInfo[,]> _rotations = new List<CellTypeInfo[,]>();
 
-    [ObservableProperty] private bool _isEnabled = true;
+    private bool _isEnabled = true;
+    public bool IsEnabled
+    {
+        get => _isEnabled;
+        set
+        {
+            if (SetProperty(ref _isEnabled, value))
+            {
+                // Trigger event manually
+                IsEnabledChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
 
     // UIElement for preview in ListView
-    [ObservableProperty] private Grid? _previewGrid;
+    private Grid? _previewGrid;
+    public Grid? PreviewGrid
+    {
+        get => _previewGrid;
+        private set => SetProperty(ref _previewGrid, value); // Private setter, updated by UpdatePreview
+    }
 
     // Event for IsEnabled changes (MainViewModel subscribes)
     public event EventHandler? IsEnabledChanged;
@@ -159,11 +182,6 @@ public partial class ShapeViewModel : ObservableObject, IDisposable
             }
         }
         PreviewGrid = newGrid; // Update the UI property
-    }
-
-    partial void OnIsEnabledChanged(bool value)
-    {
-        IsEnabledChanged?.Invoke(this, EventArgs.Empty); // Logic moved here
     }
 
     private bool _disposed = false;

@@ -61,7 +61,7 @@ public sealed partial class MainPage : Page
     private void OverlayArea_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         // Redraw overlay after the grid area size changed
-        UpdateSymmetryOverlay();
+        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, UpdateSymmetryOverlay);
     }
 
     private void UpdateSymmetryOverlay()
@@ -72,6 +72,7 @@ public sealed partial class MainPage : Page
             Console.WriteLine("ViewModel or SymmetryOverlayCanvas is null.");
             return;
         }
+
         double width = EditorGridBorder.ActualWidth;
         double height = EditorGridBorder.ActualHeight;
 

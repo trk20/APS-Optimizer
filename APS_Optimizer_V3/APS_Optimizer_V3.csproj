@@ -1,6 +1,6 @@
 <Project Sdk="Uno.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net8.0-maccatalyst;net8.0-windows10.0.26100;net8.0-browserwasm;net8.0-desktop</TargetFrameworks>
+    <TargetFrameworks>net8.0-maccatalyst;net8.0-desktop</TargetFrameworks>
 
     <OutputType>Exe</OutputType>
     <UnoSingleProject>true</UnoSingleProject>
@@ -44,6 +44,12 @@
       Svg;
     </UnoFeatures>
   </PropertyGroup>
+  <ItemGroup>
+    <Content Update="*">
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+  </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="ExportConfig.json" />
     <Content Include="Assets\Images\generic.png">
