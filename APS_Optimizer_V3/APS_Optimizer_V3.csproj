@@ -43,6 +43,9 @@
       ThemeService;
       Svg;
     </UnoFeatures>
+    <UnoIconForegroundFile>Assets\Icons\icon_foreground.svg</UnoIconForegroundFile>
+    <UnoIconBackgroundFile>Assets\Icons\icon.svg</UnoIconBackgroundFile>
+    <UnoIconColor>#FFFFFF</UnoIconColor>
   </PropertyGroup>
   <ItemGroup>
     <Content Update="*">
