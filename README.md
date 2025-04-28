@@ -112,8 +112,9 @@ While the solver is finding a solution, you'll be presented with an updating dis
 
 - Iterations in this case mean that the solver is allowing progressively less dense solutions. This will happen a fair number of times in certain situations, especially with hard reflexive symmetry, 4-clip, and 5-clip.
 
-Q: Why can't there be a progress bar?
-A: The time taken is _very_ unpredictable - a single solver setting can be the difference between 0.2s and 40s. If you figure out how to accurately estimate how long it will take, please consider making an issue with the exact details or submit a pull request.
+**Q:** Why can't there be a progress bar?
+
+**A:** The time taken is _very_ unpredictable - a single solver setting can be the difference between 0.2s and 40s. If you figure out how to accurately estimate how long it will take, please consider making an issue with the exact details or submit a pull request.
 
 ## Exporting to FTD
 
