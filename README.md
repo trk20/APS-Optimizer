@@ -1,3 +1,5 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 # APS Optimizer tool for From The Depths
 
 This tool provides a simple, user-friendly method to easily generate density-optimized APS layouts for From The Depths.
@@ -159,3 +161,7 @@ Note: for making and testing changes to the codebase, you'll need to be able to 
 
 - Thanks to the developers of `cryptominisat5` for their powerful SAT solver
 - Thanks to **sascha** on stackoverflow for their fantastic [answer on a polynomio grid-packing question](https://stackoverflow.com/a/47934736) that served as the basis for this tool's core logic.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
