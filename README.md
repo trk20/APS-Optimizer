@@ -50,22 +50,26 @@ Allows for toggling of individual cells between blocked and clear for fully cust
 #### Symmetry Selector (2)
 
 Tells the solver to enforce the selected symmetry.
+
 ![symmetry-dropdown](readme-images/symmetry-dropdown.png)
+
 Chosen symmetry will be displayed on editor and result displays.
 
 **Rotational (90/180 degrees)**
+
 ![rotational](readme-images/rotational.png) ![rotational-result](readme-images/rotational-result.png)
 
 **Reflexive (Vertical/Horizontal/Quadrants)**
+
 ![reflexive](readme-images/reflexive.png) ![reflexive-result](readme-images/reflexive-result.png)
 
 #### Soft vs Hard Symmetry (3)
 
 Tells the solver whether or not to discard non-symmetric placements where the rotated or reflected shape would intersect itself.
 
-| **Soft Symmetry**                         | **Hard Symmetry**                   |
-| ----------------------------------------- | ----------------------------------- |
-| ![reflexive-result](reflexive-result.png) | ![hard-symmetry](hard-symmetry.png) |
+| **Soft Symmetry**                                       | **Hard Symmetry**                                 |
+| ------------------------------------------------------- | ------------------------------------------------- |
+| ![reflexive-result](readme-images/reflexive-result.png) | ![hard-symmetry](readme-images/hard-symmetry.png) |
 
 #### Template Preset Selector (4)
 
@@ -80,6 +84,7 @@ Automatically applies the selected template pattern on selection and resize.
 #### Grid Dimensions (5)
 
 Changes the width and height of the grids.
+
 ![width-height](readme-images/width-height.png)
 
 **Note:**
@@ -89,6 +94,7 @@ Changes the width and height of the grids.
 #### Shape Selection (6)
 
 Indicates which shape(s) the solver is allowed to use to generate a solution.
+
 ![shape-selection](readme-images/shape-selection.png)
 
 **Notes:**
@@ -99,6 +105,7 @@ Indicates which shape(s) the solver is allowed to use to generate a solution.
 ## Solving
 
 While the solver is finding a solution, you'll be presented with an updating display of how long it's taking and the current iteration attempt number.
+
 ![progress](readme-images/progress.png)
 
 **Note:**
@@ -122,7 +129,9 @@ Pressing "Save" will allow you to navigate and save the prefab to your From The 
 Now you can open it up in-game!
 
 ![load-prefab](readme-images/load-prefab.png)
+
 ![loaded-prefab](readme-images/loaded-prefab.png)
+
 Voila!
 
 **Note:**
