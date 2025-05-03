@@ -26,7 +26,7 @@
                             Background="{Binding Background, Mode=OneWay}"
                             Padding="0"
                             Margin="0"
-                            BorderThickness="0.5"
+                            BorderThickness="0"
                             BorderBrush="LightGray"
                             VerticalAlignment="Stretch"
                             HorizontalAlignment="Stretch"
@@ -40,7 +40,7 @@
                                         IsHitTestVisible="False" />
                     </Button>
                     <Border Background="{Binding Background, Mode=OneWay}"
-                            BorderThickness="0.5"
+                            BorderThickness="0"
                             BorderBrush="DarkGray"
                             Visibility="{Binding IsEditorGrid, ElementName=RootGridControl, Converter={StaticResource InverseBoolToVis}, Mode=OneWay}">
                         <ContentControl Content="{Binding CellIconElement, Mode=OneWay}"

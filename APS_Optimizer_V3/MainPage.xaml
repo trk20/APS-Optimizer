@@ -49,6 +49,7 @@
                             BorderThickness="1"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Top"
+                            Background="DarkGray"
                             Width="{Binding CalculatedGridTotalWidth, Mode=OneWay}"
                             Height="{Binding CalculatedGridTotalHeight, Mode=OneWay}">
                         <ScrollViewer HorizontalScrollBarVisibility="Disabled"
@@ -259,6 +260,16 @@
                        Minimum="3"
                        Maximum="50"
                        SmallChange="2"
+                       LargeChange="4"
+                       Width="120"
+                       Margin="0,0,25,0" />
+            <TextBlock Text="UI Scale:"
+                       VerticalAlignment="Center" />
+            <NumberBox Value="{Binding UIScaleFactor, Mode=TwoWay}"
+                       SpinButtonPlacementMode="Inline"
+                       Minimum="1"
+                       Maximum="3"
+                       SmallChange="0.25"
                        LargeChange="4"
                        Width="120"
                        Margin="0,0,15,0" />

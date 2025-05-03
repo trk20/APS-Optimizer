@@ -154,7 +154,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private double _cellSize = 15.0;
     public double CellSize
     {
-        get => _cellSize;
+        get => _cellSize * UIScaleFactor;
         set
         {
             if (SetProperty(ref _cellSize, value))
@@ -164,10 +164,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             }
         }
     }
-    private double _cellSpacing = 0.0;
+    private double _cellSpacing = 1.0;
     public double CellSpacing
     {
-        get => _cellSpacing;
+        get => _cellSpacing * UIScaleFactor;
         set
         {
             if (SetProperty(ref _cellSpacing, value))
@@ -178,11 +178,50 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
-    public const double PreviewCellSize = 20.0;
-    public const double PreviewCellSpacing = 1.0;
+    private double _previewCellSize = 25.0;
+    public double PreviewCellSize
+    {
+        get => _previewCellSize * UIScaleFactor;
+        set
+        {
+            if (SetProperty(ref _previewCellSize, value))
+            {
+                OnPropertyChanged(nameof(MaxPreviewColumnWidth));
+            }
+        }
+    }
+    private double _previewCellSpacing = 0;
 
-    public double CalculatedGridTotalWidth => GridWidth <= 0 ? CellSize : (GridWidth * CellSize) + (Math.Max(0, GridWidth) * CellSpacing) + 2;
-    public double CalculatedGridTotalHeight => GridHeight <= 0 ? CellSize : (GridHeight * CellSize) + (Math.Max(0, GridHeight) * CellSpacing) + 1;
+    public double PreviewCellSpacing
+    {
+        get => _previewCellSpacing * UIScaleFactor;
+        set
+        {
+            if (SetProperty(ref _previewCellSpacing, value))
+            {
+                OnPropertyChanged(nameof(MaxPreviewColumnWidth));
+            }
+        }
+    }
+
+
+    public double CalculatedGridTotalWidth => GridWidth <= 0 ? CellSize : (GridWidth * CellSize) + (Math.Max(0, GridWidth - 1) * CellSpacing) + 2;
+    public double CalculatedGridTotalHeight => GridHeight <= 0 ? CellSize : (GridHeight * CellSize) + (Math.Max(0, GridHeight - 1) * CellSpacing) + 1;
+    private double _uiScaleFactor = 1.0;
+    public double UIScaleFactor
+    {
+        get => _uiScaleFactor;
+        set
+        {
+            if (SetProperty(ref _uiScaleFactor, value))
+            {
+                OnPropertyChanged(nameof(CellSize));
+                OnPropertyChanged(nameof(CellSpacing));
+                OnPropertyChanged(nameof(CalculatedGridTotalWidth));
+                OnPropertyChanged(nameof(CalculatedGridTotalHeight));
+            }
+        }
+    }
 
     private CancellationTokenSource? _gridWidthDebounceCts;
     private CancellationTokenSource? _gridHeightDebounceCts;
@@ -201,7 +240,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 .DefaultIfEmpty(4)
                 .Max();
             double width = (maxDimension * PreviewCellSize) + (Math.Max(0, maxDimension - 1) * PreviewCellSpacing);
-            return width + 2; // Border padding
+            return width; // Border padding
         }
     }
 

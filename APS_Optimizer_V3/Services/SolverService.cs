@@ -180,7 +180,7 @@ public class SolverService
 
             // Use max threads - 1 to leave one for UI
             var threads = Math.Max(Environment.ProcessorCount - 1, 1);
-            var (sat, solutionVars) = await RunSatSolver(finalCnfString, $"--threads {threads}");
+            var (sat, solutionVars, error) = await RunSatSolver(finalCnfString, $"--threads {threads}");
             iterationStopwatch.Stop();
             var logEntry = new SolverIterationLog(
                 IterationNumber: iterationCounter,
@@ -193,7 +193,14 @@ public class SolverService
             iterationLogs.Add(logEntry);
 
             // Process Result
-            if (sat && solutionVars != null)
+            if (!string.IsNullOrWhiteSpace(error))
+            {
+                stopwatch.Stop();
+                Debug.WriteLine($"Error during SAT solver execution: {error}");
+                progress?.Report("Error");
+                return new SolverResult(false, "SAT solver error: " + error, 0, null, null);
+            }
+            else if (sat && solutionVars != null)
             {
                 stopwatch.Stop();
                 progress?.Report($"Solution found, displaying...");
@@ -212,7 +219,7 @@ public class SolverService
         }
         stopwatch.Stop();
         progress?.Report("Failed: No solution found after all attempts.");
-        return new SolverResult(false, "No solution found for any possible coverage.", 0, null, null);
+        return new SolverResult(false, "No solution found!", 0, null, null);
     }
 
 
@@ -365,12 +372,12 @@ public class SolverService
     }
 
 
-    private async Task<(bool IsSat, List<int>? SolutionVariables)> RunSatSolver(string cnfContent, string? solverArgs = null)
+    private async Task<(bool IsSat, List<int>? SolutionVariables, string? error)> RunSatSolver(string cnfContent, string? solverArgs = null)
     {
         if (!File.Exists(CryptoMiniSatPath))
         {
             Debug.WriteLine($"Error: SAT Solver not found at '{CryptoMiniSatPath}'");
-            return (false, null);
+            return (false, null, $"SAT Solver not found at '{CryptoMiniSatPath}'");
         }
 
         var processInfo = new ProcessStartInfo
@@ -418,22 +425,22 @@ public class SolverService
             if (output.Contains("s SATISFIABLE"))
             {
                 var solutionVars = ParseSolverOutput(output);
-                return (true, solutionVars);
+                return (true, solutionVars, null);
             }
             else if (output.Contains("s UNSATISFIABLE"))
             {
-                return (false, null);
+                return (false, null, null);
             }
             else
             {
                 Debug.WriteLine("Warning: Could not determine SAT/UNSAT from solver output.");
-                return (false, null);
+                return (false, null, null);
             }
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Error running SAT solver: {ex.Message}");
-            return (false, null);
+            return (false, null, $"{ex.Message}");
         }
     }
 

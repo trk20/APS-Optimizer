@@ -46,7 +46,7 @@ public partial class ShapeViewModel : ObservableObject, IDisposable
     public ShapeInfo Shape { get; private set; }
 
     // Constants for appearance
-    private const double PreviewCellSize = 20.0;
+    private const double PreviewCellSize = 25.0;
     private static readonly Brush PreviewDefaultBackground = new SolidColorBrush(Colors.White);
     private static readonly Brush PreviewShapeBackground = new SolidColorBrush(Colors.Cyan);
 

@@ -93,7 +93,7 @@ public sealed partial class MainPage : Page
         double centerX = width / 2.0;
         double centerY = height / 2.0;
 
-        double arrowRadius = 15;
+        double arrowRadius = 15 * ViewModel.UIScaleFactor;
 
         var reflexiveStrokeBrush = new SolidColorBrush(Colors.Cyan)
         {
