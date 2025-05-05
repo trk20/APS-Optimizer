@@ -55,7 +55,8 @@
                         <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                                       VerticalScrollBarVisibility="Disabled"
                                       HorizontalAlignment="Center"
-                                      VerticalAlignment="Center">
+                                      VerticalAlignment="Center"
+                                      Margin="0,0,0.5,0">
                             <controls:CellGridControl ItemsSource="{Binding GridEditorCells, Mode=OneWay}"
                                                       CellSize="{Binding CellSize, Mode=OneWay}"
                                                       CellSpacing="{Binding CellSpacing, Mode=OneWay}"

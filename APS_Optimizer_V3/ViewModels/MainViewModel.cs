@@ -205,8 +205,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     }
 
 
-    public double CalculatedGridTotalWidth => GridWidth <= 0 ? CellSize : (GridWidth * CellSize) + (Math.Max(0, GridWidth - 1) * CellSpacing) + 2;
-    public double CalculatedGridTotalHeight => GridHeight <= 0 ? CellSize : (GridHeight * CellSize) + (Math.Max(0, GridHeight - 1) * CellSpacing) + 1;
+    public double CalculatedGridTotalWidth => GridWidth <= 0 ? CellSize : (GridWidth * CellSize) + (Math.Max(0, GridWidth - 1) * CellSpacing) + 4;
+    public double CalculatedGridTotalHeight => GridHeight <= 0 ? CellSize : (GridHeight * CellSize) + (Math.Max(0, GridHeight - 1) * CellSpacing) + 2;
     private double _uiScaleFactor = 1.0;
     public double UIScaleFactor
     {
