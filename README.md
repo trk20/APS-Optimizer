@@ -57,11 +57,15 @@ Chosen symmetry will be displayed on editor and result displays.
 
 **Rotational (90/180 degrees)**
 
-![rotational](readme-images/rotational.png) ![rotational-result](readme-images/rotational-result.png)
+|Symmetry (Blank)|Example Solution|
+|-|-|
+| ![rotational](readme-images/rotational.png) | ![rotational-result](readme-images/rotational-result.png) |
 
 **Reflexive (Vertical/Horizontal/Quadrants)**
 
-![reflexive](readme-images/reflexive.png) ![reflexive-result](readme-images/reflexive-result.png)
+|Symmetry (Blank)|Example Solution|
+|-|-|
+| ![reflexive](readme-images/reflexive.png) | ![reflexive-result](readme-images/reflexive-result.png) |
 
 #### Soft vs Hard Symmetry (3)
 
