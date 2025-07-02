@@ -127,6 +127,339 @@ public class ExportService
         return (totalMaterialCost, resolvedBlocks.Count);
     }
 
+    public (double totalCost, int blockCount) CalculateExportMetricsWithLayers(
+         ImmutableList<Placement> solutionPlacements,
+         int targetHeight,
+         bool includeAdditionalLayers)
+    {
+        if (solutionPlacements == null || !solutionPlacements.Any())
+        {
+            return (0.0, 0);
+        }
+
+        // Generate potential blocks from main placements
+        var potentialBlocks = GeneratePotentialBlocks(solutionPlacements, targetHeight);
+
+        // Generate additional layer blocks if requested
+        if (includeAdditionalLayers)
+        {
+            var additionalBlocks = GenerateAdditionalLayerBlocks(solutionPlacements, targetHeight);
+            potentialBlocks.AddRange(additionalBlocks);
+        }
+
+        // Resolve overlaps and calculate cost
+        var (resolvedBlocks, totalMaterialCost) = ResolveOverlaps(potentialBlocks);
+
+        return (totalMaterialCost, resolvedBlocks.Count);
+    }
+
+    public bool HasAdditionalLayers(ImmutableList<Placement>? placements)
+    {
+        if (placements == null || !placements.Any()) return false;
+
+        var uniqueShapeNames = placements.Select(p => p.ShapeName).Distinct().ToHashSet();
+
+        foreach (var shapeName in uniqueShapeNames)
+        {
+            if (_config.ShapeExportMapping.TryGetValue(shapeName, out var mapping) &&
+                mapping.AdditionalLayers != null && mapping.AdditionalLayers.Any())
+            {
+                // Check if any layer conditions are met
+                foreach (var layer in mapping.AdditionalLayers)
+                {
+                    if (EvaluateLayerConditions(layer, placements, uniqueShapeNames))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private List<PotentialBlock> GenerateAdditionalLayerBlocks(ImmutableList<Placement> solutionPlacements, int targetHeight)
+    {
+        var layerBlocks = new List<PotentialBlock>();
+        var uniqueShapeNames = solutionPlacements.Select(p => p.ShapeName).Distinct().ToHashSet();
+
+        foreach (var placement in solutionPlacements)
+        {
+            if (!_config.ShapeExportMapping.TryGetValue(placement.ShapeName, out var mapping) ||
+                mapping.AdditionalLayers == null)
+            {
+                continue;
+            }
+
+            foreach (var layer in mapping.AdditionalLayers)
+            {
+                if (!EvaluateLayerConditions(layer, solutionPlacements, uniqueShapeNames))
+                {
+                    continue;
+                }
+
+                GenerateLayerBlocks(layerBlocks, placement, layer, targetHeight);
+            }
+        }
+
+        return layerBlocks;
+    }
+
+    private bool EvaluateLayerConditions(LayerDefinition layer, ImmutableList<Placement> placements, HashSet<string> uniqueShapeNames)
+    {
+        if (layer.ApplyConditions == null || !layer.ApplyConditions.Any())
+        {
+            return true; // No conditions means always apply
+        }
+
+        foreach (var condition in layer.ApplyConditions)
+        {
+            switch (condition.Type)
+            {
+                case LayerConditionType.ContainsCellType:
+                    if (!string.IsNullOrEmpty(condition.CellTypeName))
+                    {
+                        bool hasCellType = placements.Any(p =>
+                            p.Grid.Cast<CellTypeInfo>().Any(cell =>
+                                cell != null && !cell.IsEmpty && cell.Name == condition.CellTypeName));
+                        if (!hasCellType) return false;
+                    }
+                    break;
+
+                case LayerConditionType.ShapeName:
+                    if (condition.ShapeNames != null && condition.ShapeNames.Any())
+                    {
+                        bool hasMatchingShape = condition.ShapeNames.Any(shapeName =>
+                            uniqueShapeNames.Contains(shapeName));
+                        if (!hasMatchingShape) return false;
+                    }
+                    break;
+            }
+        }
+
+        return true; // All conditions passed
+    }
+
+    private void GenerateLayerBlocks(List<PotentialBlock> layerBlocks, Placement placement, LayerDefinition layer, int targetHeight)
+    {
+        int baseY = layer.RelativePosition == LayerPosition.Below ? -1 : targetHeight;
+        var occupiedPositions = new HashSet<(int x, int z)>();
+
+        // Process each block placement rule in order
+        foreach (var blockPlacement in layer.BlockPlacements)
+        {
+            switch (blockPlacement.PlacementType)
+            {
+                case LayerPlacementType.ExtendingFrom:
+                    GenerateExtendingBlocks(layerBlocks, placement, blockPlacement, baseY, occupiedPositions);
+                    break;
+
+                case LayerPlacementType.UnderCellType:
+                    GenerateUnderCellTypeBlocks(layerBlocks, placement, blockPlacement, baseY, occupiedPositions);
+                    break;
+
+                case LayerPlacementType.FillRemaining:
+                    GenerateFillBlocks(layerBlocks, placement, blockPlacement, baseY, occupiedPositions);
+                    break;
+            }
+        }
+    }
+
+    private void GenerateExtendingBlocks(List<PotentialBlock> layerBlocks, Placement placement, LayerBlockPlacement blockPlacement, int baseY, HashSet<(int x, int z)> occupiedPositions)
+    {
+        if (string.IsNullOrEmpty(blockPlacement.SourceCellType) || string.IsNullOrEmpty(blockPlacement.BlockDefKey))
+            return;
+
+        if (!_config.BasicBlockDefinitions.TryGetValue(blockPlacement.BlockDefKey, out var basicDef))
+        {
+            Debug.WriteLine($"Warning: Block definition '{blockPlacement.BlockDefKey}' not found for extending block.");
+            return;
+        }
+
+        // Find cells of the source type
+        int gridRows = placement.Grid.GetLength(0);
+        int gridCols = placement.Grid.GetLength(1);
+
+        for (int pr = 0; pr < gridRows; pr++)
+        {
+            for (int pc = 0; pc < gridCols; pc++)
+            {
+                var cellType = placement.Grid[pr, pc];
+                if (cellType == null || cellType.IsEmpty || cellType.Name != blockPlacement.SourceCellType)
+                    continue;
+
+                int worldX = placement.Col + pc;
+                int worldZ = placement.Row + pr;
+
+                // Get block orientation
+                LogicalOrientation orientation = GetBlockOrientation(blockPlacement, cellType);
+
+                // Get rotation and data for the block
+                if (!TryGetRotationCodeAndData(basicDef, orientation, out int rotationCode, out string? blockDataSegment))
+                {
+                    Debug.WriteLine($"Warning: Could not get rotation/data for extending block at ({worldX}, {baseY}, {worldZ})");
+                    continue;
+                }
+
+                // Place the main block
+                layerBlocks.Add(new PotentialBlock(worldX, baseY, worldZ, basicDef.BlockId, rotationCode, blockDataSegment, basicDef.MaterialCost));
+                occupiedPositions.Add((worldX, worldZ));
+
+                // Handle extension if specified
+                if (blockPlacement.ExtensionDirection.HasValue && blockPlacement.ExtensionDistance.HasValue)
+                {
+                    var (deltaX, deltaZ) = GetDirectionOffset(blockPlacement.ExtensionDirection.Value);
+
+                    for (int dist = 1; dist <= blockPlacement.ExtensionDistance.Value; dist++)
+                    {
+                        int extX = worldX + (deltaX * dist);
+                        int extZ = worldZ + (deltaZ * dist);
+
+                        // Check if extension is within placement bounds (don't extend outside shape)
+                        bool withinPlacement = placement.CoveredCells.Any(cell => cell.r == extZ && cell.c == extX);
+                        if (!withinPlacement)
+                            break;
+
+                        layerBlocks.Add(new PotentialBlock(extX, baseY, extZ, basicDef.BlockId, rotationCode, blockDataSegment, basicDef.MaterialCost));
+                        occupiedPositions.Add((extX, extZ));
+                    }
+                }
+            }
+        }
+    }
+
+    private void GenerateUnderCellTypeBlocks(List<PotentialBlock> layerBlocks, Placement placement, LayerBlockPlacement blockPlacement, int baseY, HashSet<(int x, int z)> occupiedPositions)
+    {
+        if (string.IsNullOrEmpty(blockPlacement.SourceCellType) || string.IsNullOrEmpty(blockPlacement.BlockDefKey))
+            return;
+
+        if (!_config.BasicBlockDefinitions.TryGetValue(blockPlacement.BlockDefKey, out var basicDef))
+        {
+            Debug.WriteLine($"Warning: Block definition '{blockPlacement.BlockDefKey}' not found for under-cell block.");
+            return;
+        }
+
+        // Find cells of the source type
+        int gridRows = placement.Grid.GetLength(0);
+        int gridCols = placement.Grid.GetLength(1);
+
+        for (int pr = 0; pr < gridRows; pr++)
+        {
+            for (int pc = 0; pc < gridCols; pc++)
+            {
+                var cellType = placement.Grid[pr, pc];
+                if (cellType == null || cellType.IsEmpty || cellType.Name != blockPlacement.SourceCellType)
+                    continue;
+
+                int worldX = placement.Col + pc;
+                int worldZ = placement.Row + pr;
+
+                // Skip if position is already occupied
+                if (occupiedPositions.Contains((worldX, worldZ)))
+                    continue;
+
+                // Get block orientation
+                LogicalOrientation orientation = GetBlockOrientation(blockPlacement, cellType);
+
+                // Get rotation and data for the block
+                if (!TryGetRotationCodeAndData(basicDef, orientation, out int rotationCode, out string? blockDataSegment))
+                {
+                    Debug.WriteLine($"Warning: Could not get rotation/data for under-cell block at ({worldX}, {baseY}, {worldZ})");
+                    continue;
+                }
+
+                layerBlocks.Add(new PotentialBlock(worldX, baseY, worldZ, basicDef.BlockId, rotationCode, blockDataSegment, basicDef.MaterialCost));
+                occupiedPositions.Add((worldX, worldZ));
+            }
+        }
+    }
+
+    private void GenerateFillBlocks(List<PotentialBlock> layerBlocks, Placement placement, LayerBlockPlacement blockPlacement, int baseY, HashSet<(int x, int z)> occupiedPositions)
+    {
+        if (string.IsNullOrEmpty(blockPlacement.FillBlockDefKey))
+            return;
+
+        if (!_config.BasicBlockDefinitions.TryGetValue(blockPlacement.FillBlockDefKey, out var basicDef))
+        {
+            Debug.WriteLine($"Warning: Block definition '{blockPlacement.FillBlockDefKey}' not found for fill block.");
+            return;
+        }
+
+        // Find cells to fill based on source cell type
+        int gridRows = placement.Grid.GetLength(0);
+        int gridCols = placement.Grid.GetLength(1);
+
+        for (int pr = 0; pr < gridRows; pr++)
+        {
+            for (int pc = 0; pc < gridCols; pc++)
+            {
+                var cellType = placement.Grid[pr, pc];
+
+                // Determine if this position should be filled
+                bool shouldFill = false;
+
+                if (string.IsNullOrEmpty(blockPlacement.SourceCellType))
+                {
+                    // Fill all non-empty cells if no source type specified
+                    shouldFill = cellType != null && !cellType.IsEmpty;
+                }
+                else
+                {
+                    // Fill only cells of the specified source type
+                    shouldFill = cellType != null && !cellType.IsEmpty && cellType.Name == blockPlacement.SourceCellType;
+                }
+
+                if (!shouldFill)
+                    continue;
+
+                int worldX = placement.Col + pc;
+                int worldZ = placement.Row + pr;
+
+                // Check fill pattern
+                if (blockPlacement.FillPattern == LayerFillPattern.ExcludeOccupied &&
+                    occupiedPositions.Contains((worldX, worldZ)))
+                {
+                    continue; // Skip occupied positions
+                }
+
+                // Get block orientation
+                LogicalOrientation orientation = blockPlacement.FillOrientation ?? LogicalOrientation.North;
+
+                // Get rotation and data for the block
+                if (!TryGetRotationCodeAndData(basicDef, orientation, out int rotationCode, out string? blockDataSegment))
+                {
+                    Debug.WriteLine($"Warning: Could not get rotation/data for fill block at ({worldX}, {baseY}, {worldZ})");
+                    continue;
+                }
+
+                layerBlocks.Add(new PotentialBlock(worldX, baseY, worldZ, basicDef.BlockId, rotationCode, blockDataSegment, basicDef.MaterialCost));
+                occupiedPositions.Add((worldX, worldZ));
+            }
+        }
+    }
+
+    private LogicalOrientation GetBlockOrientation(LayerBlockPlacement blockPlacement, CellTypeInfo cellType)
+    {
+        if (blockPlacement.OrientationSource == RotationSource.FromCell)
+        {
+            return ToLogicalOrientation(cellType.CurrentRotation);
+        }
+
+        return blockPlacement.Orientation ?? LogicalOrientation.North;
+    }
+
+    private (int deltaX, int deltaZ) GetDirectionOffset(LogicalOrientation direction)
+    {
+        return direction switch
+        {
+            LogicalOrientation.North => (0, -1),
+            LogicalOrientation.East => (1, 0),
+            LogicalOrientation.South => (0, 1),
+            LogicalOrientation.West => (-1, 0),
+            _ => (0, 0)
+        };
+    }
+
     private void PreProcessConfig()
     {
         // --- Cache shared data ---
@@ -283,6 +616,15 @@ public class ExportService
         int targetHeight,
         string blueprintName)
     {
+        return GenerateBlueprintJson(solutionPlacements, targetHeight, blueprintName, false);
+    }
+
+    public (string json, double totalCost, int blockCount) GenerateBlueprintJson(
+        ImmutableList<Placement> solutionPlacements,
+        int targetHeight,
+        string blueprintName,
+        bool includeAdditionalLayers)
+    {
         if (solutionPlacements == null || !solutionPlacements.Any())
         {
             throw new ArgumentException("Solution placements cannot be null or empty.", nameof(solutionPlacements));
@@ -290,6 +632,13 @@ public class ExportService
 
         // Generate all potential blocks from placements
         var potentialBlocks = GeneratePotentialBlocks(solutionPlacements, targetHeight);
+
+        // Generate additional layer blocks if requested
+        if (includeAdditionalLayers)
+        {
+            var additionalBlocks = GenerateAdditionalLayerBlocks(solutionPlacements, targetHeight);
+            potentialBlocks.AddRange(additionalBlocks);
+        }
 
         // Resolve overlaps and calculate cost
         var (resolvedBlocks, totalMaterialCost) = ResolveOverlaps(potentialBlocks);

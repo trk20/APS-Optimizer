@@ -196,12 +196,70 @@
     "3-Clip": {
       "Mode": "ScaleBasic",
       "HeightRange": [1, 8],
-      "CellTypeMap": { "Loader": "Loader", "Clip": "Clip" }
+      "CellTypeMap": { "Loader": "Loader", "Clip": "Clip" },
+      "AdditionalLayers": [
+        {
+          "Name": "BottomEjectorLayer",
+          "RelativePosition": "Below",
+          "ApplyConditions": [
+            {
+              "Type": "ShapeName",
+              "ShapeNames": ["3-Clip", "4-Clip"]
+            }
+          ],
+          "BlockPlacements": [
+            {
+              "PlacementType": "ExtendingFrom",
+              "SourceCellType": "Loader",
+              "BlockDefKey": "Ejector_1",
+              "OrientationSource": "FromCell",
+              "ExtensionDirection": "North",
+              "ExtensionDistance": 1
+            },
+            {
+              "PlacementType": "FillRemaining",
+              "SourceCellType": "Clip",
+              "FillPattern": "ExcludeOccupied",
+              "FillBlockDefKey": "AmmoIntake_1",
+              "FillOrientation": "Up"
+            }
+          ]
+        }
+      ]
     },
     "4-Clip": {
       "Mode": "ScaleBasic",
       "HeightRange": [1, 8],
-      "CellTypeMap": { "Loader": "Loader", "Clip": "Clip" }
+      "CellTypeMap": { "Loader": "Loader", "Clip": "Clip" },
+      "AdditionalLayers": [
+        {
+          "Name": "BottomEjectorLayer",
+          "RelativePosition": "Below",
+          "ApplyConditions": [
+            {
+              "Type": "ShapeName",
+              "ShapeNames": ["3-Clip", "4-Clip"]
+            }
+          ],
+          "BlockPlacements": [
+            {
+              "PlacementType": "ExtendingFrom",
+              "SourceCellType": "Loader",
+              "BlockDefKey": "Ejector_1",
+              "OrientationSource": "FromCell",
+              "ExtensionDirection": "North",
+              "ExtensionDistance": 1
+            },
+            {
+              "PlacementType": "FillRemaining",
+              "SourceCellType": "Clip",
+              "FillPattern": "ExcludeOccupied",
+              "FillBlockDefKey": "AmmoIntake_1",
+              "FillOrientation": "Up"
+            }
+          ]
+        }
+      ]
     },
     "5-Clip": {
       "Mode": "StackPerCell",

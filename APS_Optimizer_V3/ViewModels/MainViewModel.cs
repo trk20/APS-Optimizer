@@ -714,13 +714,14 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         {
             // User clicked "Save"
             int finalHeight = dialogViewModel.TargetHeight; // Get selected height
-            string blueprintName = $"Generated_{finalHeight}m"; // Example name
+            bool includeBottomLayer = dialogViewModel.IncludeBottomLayer; // Get bottom layer option
+            string blueprintName = $"Generated_{finalHeight}m{(includeBottomLayer ? "_with_bottom" : "")}"; // Example name
 
             (string jsonResult, double totalCost, int blockCount) exportData;
             try
             {
-                // Generate the final JSON using the selected height
-                exportData = _exportService.GenerateBlueprintJson(_lastSolution, finalHeight, blueprintName);
+                // Generate the final JSON using the selected height and layer options
+                exportData = _exportService.GenerateBlueprintJson(_lastSolution, finalHeight, blueprintName, includeBottomLayer);
             }
             catch (Exception ex)
             {

@@ -5,6 +5,7 @@
                xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                xmlns:viewmodels="using:APS_Optimizer_V3.ViewModels"
+               xmlns:converters="using:APS_Optimizer_V3.Converters"
                mc:Ignorable="d"
                Title="Export To Prefab"
                PrimaryButtonText="Save"
@@ -12,6 +13,9 @@
                DefaultButton="Primary"
                CornerRadius="8"
                MinWidth="500">
+    <ContentDialog.Resources>
+        <converters:BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </ContentDialog.Resources>
     <StackPanel Spacing="15">
         <TextBlock Text="{Binding PlacementSummaryText, Mode=OneWay}"
                    TextWrapping="Wrap" />
@@ -26,6 +30,14 @@
                        SpinButtonPlacementMode="Inline"
                        Width="140" />
         </StackPanel>
+        <!-- Bottom Layer Option -->
+        <CheckBox Content="Include bottom ejector/intake layer (+1 height)"
+                  IsChecked="{Binding IncludeBottomLayer, Mode=TwoWay}"
+                  Visibility="{Binding ShowBottomLayerOption, Converter={StaticResource BoolToVis}}" />
+        <!-- Effective Height Display -->
+        <TextBlock Text="{Binding EffectiveHeightText, Mode=OneWay}"
+                   FontWeight="SemiBold"
+                   Visibility="{Binding ShowBottomLayerOption, Converter={StaticResource BoolToVis}}" />
         <!-- Simplified Cost Display -->
         <TextBlock Text="{Binding TotalCostText, Mode=OneWay}"
                    VerticalAlignment="Center"
