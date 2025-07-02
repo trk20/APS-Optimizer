@@ -169,24 +169,97 @@
         "Down": "AAAADgAAAAcAAAAAAAAAAF0bAQAAAAAAAATHAAAA"
       }
     },
-    "Cooler_1": {
+    "Ejector_1": {
+      "BlockId": 231,
+      "RotationMap": {
+        "North": 12,
+        "South": 14,
+        "East": 13,
+        "West": 15
+      },
+      "MaterialCost": 10.0
+    },
+    "GaugeIncreaser_1": {
       "BlockId": 387,
       "DefaultRotationCode": 11,
       "BlockData": "",
       "MaterialCost": 20.0
+    },
+    "Cooler_1": {
+      "BlockId": 255,
+      "DefaultRotationCode": 11,
+      "BlockData": "",
+      "MaterialCost": 50.0
     }
   },
-
   "ShapeExportMapping": {
     "3-Clip": {
       "Mode": "ScaleBasic",
       "HeightRange": [1, 8],
-      "CellTypeMap": { "Loader": "Loader", "Clip": "Clip" }
+      "CellTypeMap": { "Loader": "Loader", "Clip": "Clip" },
+      "AdditionalLayers": [
+        {
+          "Name": "BottomEjectorLayer",
+          "RelativePosition": "Below",
+          "ApplyConditions": [
+            {
+              "Type": "ShapeName",
+              "ShapeNames": ["3-Clip", "4-Clip"]
+            }
+          ],
+          "BlockPlacements": [
+            {
+              "PlacementType": "ExtendingFrom",
+              "SourceCellType": "Loader",
+              "BlockDefKey": "Ejector_1",
+              "OrientationSource": "FromPlacement",
+              "ExtensionDirection": "Auto",
+              "ExtensionDistance": 1
+            },
+            {
+              "PlacementType": "FillRemaining",
+              "SourceCellType": "Clip",
+              "FillPattern": "ExcludeOccupied",
+              "FillBlockDefKey": "AmmoIntake_1",
+              "FillOrientation": "Up"
+            }
+          ]
+        }
+      ]
     },
     "4-Clip": {
       "Mode": "ScaleBasic",
       "HeightRange": [1, 8],
-      "CellTypeMap": { "Loader": "Loader", "Clip": "Clip" }
+      "CellTypeMap": { "Loader": "Loader", "Clip": "Clip" },
+      "AdditionalLayers": [
+        {
+          "Name": "BottomEjectorLayer",
+          "RelativePosition": "Below",
+          "ApplyConditions": [
+            {
+              "Type": "ShapeName",
+              "ShapeNames": ["3-Clip", "4-Clip"]
+            }
+          ],
+          "BlockPlacements": [
+            {
+              "PlacementType": "ExtendingFrom",
+              "SourceCellType": "Loader",
+              "BlockDefKey": "Ejector_1",
+              "OrientationSource": "FromPlacement",
+              "ExtensionDirection": "Auto",
+              "ExtensionDistance": 1
+            },
+            {
+              "PlacementType": "FillRemaining",
+              "SourceCellType": "Clip",
+              "FillPattern": "ExcludeOccupied",
+              "FillBlockDefKey": "AmmoIntake_1",
+              "FillOrientation": "Up"
+            }
+          ]
+        }
+      ]
     },
     "5-Clip": {
       "Mode": "StackPerCell",
@@ -215,9 +288,10 @@
       "BlockDefKey": "Cooler_1"
     }
   },
-
   "KnownItemMappings": {
     "0": "f675b19a-4a67-41de-bd60-651bac2cfe17",
+    "231": "d13556da-e6dc-4c49-a9ec-b47517709da5",
+    "255": "703d6094-850b-45fc-a01c-25ceddd49dcb",
     "364": "0a1aa046-e841-4813-907e-6567e596a079",
     "365": "d7d56a2b-bc35-4c89-87de-38c99e7d1c2f",
     "366": "04d60765-2c11-48eb-b9fa-c3eb847b91d5",

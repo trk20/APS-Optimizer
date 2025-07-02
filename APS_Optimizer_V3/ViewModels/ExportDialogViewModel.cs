@@ -16,6 +16,10 @@ public partial class ExportDialogViewModel : ObservableObject
         set => SetProperty(ref _placementSummaryText, value);
     }
 
+    public string EffectiveHeightText => IncludeBottomLayer && ShowBottomLayerOption
+        ? $"Effective Height: {TargetHeight + 1}m"
+        : $"Target Height: {TargetHeight}m";
+
     private int _targetHeight = 1;
     public int TargetHeight
     {
@@ -35,6 +39,7 @@ public partial class ExportDialogViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(TotalCostText));
                 OnPropertyChanged(nameof(TotalBlockCountText));
+                OnPropertyChanged(nameof(EffectiveHeightText));
                 CalculateCostCommand.NotifyCanExecuteChanged();
                 CalculateCostCommand.Execute(null);
             }
@@ -88,6 +93,30 @@ public partial class ExportDialogViewModel : ObservableObject
         }
     }
 
+    private bool _includeBottomLayer = false;
+    public bool IncludeBottomLayer
+    {
+        get => _includeBottomLayer;
+        set
+        {
+            if (SetProperty(ref _includeBottomLayer, value))
+            {
+                OnPropertyChanged(nameof(TotalCostText));
+                OnPropertyChanged(nameof(TotalBlockCountText));
+                OnPropertyChanged(nameof(EffectiveHeightText));
+                CalculateCostCommand.NotifyCanExecuteChanged();
+                CalculateCostCommand.Execute(null);
+            }
+        }
+    }
+
+    private bool _showBottomLayerOption = false;
+    public bool ShowBottomLayerOption
+    {
+        get => _showBottomLayerOption;
+        private set => SetProperty(ref _showBottomLayerOption, value);
+    }
+
 
     public string TotalCostText => TotalCost.HasValue
         ? $"Total Material Cost: {TotalCost.Value:F0}"
@@ -114,7 +143,8 @@ public partial class ExportDialogViewModel : ObservableObject
 
         _targetHeight = Math.Clamp(minHeight, _minHeight, _maxHeight);
 
-        // Calculate initial cost
+        _showBottomLayerOption = exportService.HasAdditionalLayers(solutionPlacements);
+
         CalculateCost();
     }
 
@@ -126,7 +156,7 @@ public partial class ExportDialogViewModel : ObservableObject
 
         try
         {
-            var (cost, blocks) = _exportService.CalculateExportMetrics(_solutionPlacements, TargetHeight);
+            var (cost, blocks) = _exportService.CalculateExportMetricsWithLayers(_solutionPlacements, TargetHeight, IncludeBottomLayer);
             TotalCost = cost;
             BlockCount = blocks;
 

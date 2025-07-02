@@ -473,9 +473,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             };
 
 
-            // Add new ShapeViewModels (CollectionChanged handler will subscribe events)
             AvailableShapes.Add(new ShapeViewModel(new ShapeInfo("3-Clip", clip3Base) { IsRotatable = true }));
-            AvailableShapes.Add(new ShapeViewModel(new ShapeInfo("4-Clip", clip4Base) { IsRotatable = false }) { IsEnabled = false }); // Enable for testing
+            AvailableShapes.Add(new ShapeViewModel(new ShapeInfo("4-Clip", clip4Base) { IsRotatable = false }) { IsEnabled = false });
             AvailableShapes.Add(new ShapeViewModel(new ShapeInfo("5-Clip", clip5Base) { IsRotatable = true }) { IsEnabled = false });
 
             // No need to manually subscribe here, CollectionChanged does it.
@@ -715,13 +714,14 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         {
             // User clicked "Save"
             int finalHeight = dialogViewModel.TargetHeight; // Get selected height
-            string blueprintName = $"Generated_{finalHeight}m"; // Example name
+            bool includeBottomLayer = dialogViewModel.IncludeBottomLayer; // Get bottom layer option
+            string blueprintName = $"Generated_{finalHeight}m_{dialogViewModel.PlacementSummaryText.Replace(", ", "_")}";
 
             (string jsonResult, double totalCost, int blockCount) exportData;
             try
             {
-                // Generate the final JSON using the selected height
-                exportData = _exportService.GenerateBlueprintJson(_lastSolution, finalHeight, blueprintName);
+                // Generate the final JSON using the selected height and layer options
+                exportData = _exportService.GenerateBlueprintJson(_lastSolution, finalHeight, blueprintName, includeBottomLayer);
             }
             catch (Exception ex)
             {
@@ -771,6 +771,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
 
         return string.Join(", ", placementStrings);
+        // eg "3x 3-Clip, 2x 4-Clip, 1x 5-Clip"
     }
 
     private void DisplaySolution(ImmutableList<Placement> solutionPlacements)
