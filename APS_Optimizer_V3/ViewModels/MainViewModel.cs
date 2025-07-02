@@ -473,9 +473,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             };
 
 
-            // Add new ShapeViewModels (CollectionChanged handler will subscribe events)
             AvailableShapes.Add(new ShapeViewModel(new ShapeInfo("3-Clip", clip3Base) { IsRotatable = true }));
-            AvailableShapes.Add(new ShapeViewModel(new ShapeInfo("4-Clip", clip4Base) { IsRotatable = false }) { IsEnabled = false }); // Enable for testing
+            AvailableShapes.Add(new ShapeViewModel(new ShapeInfo("4-Clip", clip4Base) { IsRotatable = false }) { IsEnabled = false });
             AvailableShapes.Add(new ShapeViewModel(new ShapeInfo("5-Clip", clip5Base) { IsRotatable = true }) { IsEnabled = false });
 
             // No need to manually subscribe here, CollectionChanged does it.
