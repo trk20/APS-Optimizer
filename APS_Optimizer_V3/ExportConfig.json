@@ -172,10 +172,10 @@
     "Ejector_1": {
       "BlockId": 231,
       "RotationMap": {
-        "North": 14,
-        "South": 12,
-        "East": 15,
-        "West": 13
+        "North": 12,
+        "South": 14,
+        "East": 13,
+        "West": 15
       },
       "MaterialCost": 10.0
     },
@@ -187,7 +187,7 @@
     },
     "Cooler_1": {
       "BlockId": 255,
-      "DefaultRotationCode": 0,
+      "DefaultRotationCode": 11,
       "BlockData": "",
       "MaterialCost": 50.0
     }
@@ -212,8 +212,8 @@
               "PlacementType": "ExtendingFrom",
               "SourceCellType": "Loader",
               "BlockDefKey": "Ejector_1",
-              "OrientationSource": "FromCell",
-              "ExtensionDirection": "North",
+              "OrientationSource": "FromPlacement",
+              "ExtensionDirection": "Auto",
               "ExtensionDistance": 1
             },
             {
@@ -246,8 +246,8 @@
               "PlacementType": "ExtendingFrom",
               "SourceCellType": "Loader",
               "BlockDefKey": "Ejector_1",
-              "OrientationSource": "FromCell",
-              "ExtensionDirection": "North",
+              "OrientationSource": "FromPlacement",
+              "ExtensionDirection": "Auto",
               "ExtensionDistance": 1
             },
             {

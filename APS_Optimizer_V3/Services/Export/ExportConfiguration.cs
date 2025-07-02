@@ -171,7 +171,8 @@ public enum LogicalOrientation
     South,
     West,
     Up,
-    Down
+    Down,
+    Auto // Automatically determine direction based on placement
 }
 public enum ExportMode
 {
@@ -182,7 +183,8 @@ public enum ExportMode
 public enum RotationSource
 {
     FromCell,
-    Fixed
+    Fixed,
+    FromPlacement
 }
 
 public enum LayerPosition

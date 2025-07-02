@@ -715,7 +715,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             // User clicked "Save"
             int finalHeight = dialogViewModel.TargetHeight; // Get selected height
             bool includeBottomLayer = dialogViewModel.IncludeBottomLayer; // Get bottom layer option
-            string blueprintName = $"Generated_{finalHeight}m{(includeBottomLayer ? "_with_bottom" : "")}"; // Example name
+            string blueprintName = $"Generated_{finalHeight}m_{dialogViewModel.PlacementSummaryText.Replace(", ", "_")}";
 
             (string jsonResult, double totalCost, int blockCount) exportData;
             try
@@ -771,6 +771,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
 
         return string.Join(", ", placementStrings);
+        // eg "3x 3-Clip, 2x 4-Clip, 1x 5-Clip"
     }
 
     private void DisplaySolution(ImmutableList<Placement> solutionPlacements)

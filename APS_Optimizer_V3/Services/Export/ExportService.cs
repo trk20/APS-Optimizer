@@ -291,8 +291,21 @@ public class ExportService
                 int worldX = placement.Col + pc;
                 int worldZ = placement.Row + pr;
 
+                // Handle extension if specified
+                LogicalOrientation extDirection = LogicalOrientation.North;
+                if (blockPlacement.ExtensionDirection.HasValue && blockPlacement.ExtensionDistance.HasValue)
+                {
+                    extDirection = blockPlacement.ExtensionDirection.Value;
+
+                    // Handle Auto direction by finding the best direction to extend
+                    if (extDirection == LogicalOrientation.Auto)
+                    {
+                        extDirection = DetermineAutoExtensionDirection(placement, pr, pc, blockPlacement.ExtensionDistance.Value);
+                    }
+                }
+
                 // Get block orientation
-                LogicalOrientation orientation = GetBlockOrientation(blockPlacement, cellType);
+                LogicalOrientation orientation = GetBlockOrientationWithDirection(blockPlacement, cellType, extDirection, placement);
 
                 // Get rotation and data for the block
                 if (!TryGetRotationCodeAndData(basicDef, orientation, out int rotationCode, out string? blockDataSegment))
@@ -301,28 +314,34 @@ public class ExportService
                     continue;
                 }
 
-                // Place the main block
-                layerBlocks.Add(new PotentialBlock(worldX, baseY, worldZ, basicDef.BlockId, rotationCode, blockDataSegment, basicDef.MaterialCost));
-                occupiedPositions.Add((worldX, worldZ));
-
-                // Handle extension if specified
-                if (blockPlacement.ExtensionDirection.HasValue && blockPlacement.ExtensionDistance.HasValue)
+                // For extending blocks like ejectors, place them under the source
+                if (blockPlacement.ExtensionDirection.HasValue)
                 {
-                    var (deltaX, deltaZ) = GetDirectionOffset(blockPlacement.ExtensionDirection.Value);
-
-                    for (int dist = 1; dist <= blockPlacement.ExtensionDistance.Value; dist++)
+                    if (occupiedPositions.Contains((worldX, worldZ)))
                     {
-                        int extX = worldX + (deltaX * dist);
-                        int extZ = worldZ + (deltaZ * dist);
-
-                        // Check if extension is within placement bounds (don't extend outside shape)
-                        bool withinPlacement = placement.CoveredCells.Any(cell => cell.r == extZ && cell.c == extX);
-                        if (!withinPlacement)
-                            break;
-
-                        layerBlocks.Add(new PotentialBlock(extX, baseY, extZ, basicDef.BlockId, rotationCode, blockDataSegment, basicDef.MaterialCost));
-                        occupiedPositions.Add((extX, extZ));
+                        // Position already occupied, skip
+                        continue;
                     }
+
+                    orientation = ToLogicalOrientationFromPlacementRotation(placement.RotationIndex);
+
+                    if (!TryGetRotationCodeAndData(basicDef, orientation, out rotationCode, out blockDataSegment))
+                    {
+                        Debug.WriteLine($"Warning: Could not get rotation/data for mapping at ({worldX}, {baseY}, {worldZ})");
+                        continue;
+                    }
+
+                    layerBlocks.Add(new PotentialBlock(worldX, baseY, worldZ, basicDef.BlockId, rotationCode, blockDataSegment, basicDef.MaterialCost));
+                    occupiedPositions.Add((worldX, worldZ));
+
+                    LogicalOrientation hitboxDirection = ReverseDirection(orientation);
+                    var (deltaX, deltaZ) = GetDirectionOffset(hitboxDirection);
+
+                    int extX = worldX + deltaX;
+                    int extZ = worldZ + deltaZ;
+
+                    occupiedPositions.Add((extX, extZ));
+
                 }
             }
         }
@@ -359,7 +378,7 @@ public class ExportService
                     continue;
 
                 // Get block orientation
-                LogicalOrientation orientation = GetBlockOrientation(blockPlacement, cellType);
+                LogicalOrientation orientation = GetBlockOrientation(blockPlacement, cellType, placement);
 
                 // Get rotation and data for the block
                 if (!TryGetRotationCodeAndData(basicDef, orientation, out int rotationCode, out string? blockDataSegment))
@@ -423,7 +442,19 @@ public class ExportService
                 }
 
                 // Get block orientation
-                LogicalOrientation orientation = blockPlacement.FillOrientation ?? LogicalOrientation.North;
+                LogicalOrientation orientation;
+                if (blockPlacement.OrientationSource == RotationSource.FromPlacement)
+                {
+                    orientation = ToLogicalOrientationFromPlacementRotation(placement.RotationIndex);
+                }
+                else if (blockPlacement.OrientationSource == RotationSource.FromCell && cellType != null)
+                {
+                    orientation = ToLogicalOrientation(cellType.CurrentRotation);
+                }
+                else
+                {
+                    orientation = blockPlacement.FillOrientation ?? LogicalOrientation.North;
+                }
 
                 // Get rotation and data for the block
                 if (!TryGetRotationCodeAndData(basicDef, orientation, out int rotationCode, out string? blockDataSegment))
@@ -437,15 +468,58 @@ public class ExportService
             }
         }
     }
-
-    private LogicalOrientation GetBlockOrientation(LayerBlockPlacement blockPlacement, CellTypeInfo cellType)
+    private LogicalOrientation GetBlockOrientation(LayerBlockPlacement blockPlacement, CellTypeInfo cellType, Placement placement)
     {
         if (blockPlacement.OrientationSource == RotationSource.FromCell)
         {
             return ToLogicalOrientation(cellType.CurrentRotation);
         }
 
+        if (blockPlacement.OrientationSource == RotationSource.FromPlacement)
+        {
+            return ToLogicalOrientationFromPlacementRotation(placement.RotationIndex);
+        }
+
         return blockPlacement.Orientation ?? LogicalOrientation.North;
+    }
+
+    private LogicalOrientation GetBlockOrientationWithDirection(LayerBlockPlacement blockPlacement, CellTypeInfo cellType, LogicalOrientation extensionDirection, Placement placement)
+    {
+        bool extendedHitbox = blockPlacement.ExtensionDirection.HasValue && blockPlacement.ExtensionDistance.HasValue;
+
+        if (blockPlacement.OrientationSource == RotationSource.FromCell)
+        {
+            LogicalOrientation result = ToLogicalOrientation(cellType.CurrentRotation);
+            // Debug.WriteLine($"Block orientation from cell: {result} (cell rotation: {cellType.CurrentRotation})");
+            return result;
+        }
+
+        if (blockPlacement.OrientationSource == RotationSource.FromPlacement)
+        {
+            LogicalOrientation result = ToLogicalOrientationFromPlacementRotation(placement.RotationIndex);
+            return result;
+        }
+
+        if (blockPlacement.Orientation == LogicalOrientation.Auto)
+        {
+            // Debug.WriteLine($"Auto orientation set to extension direction: {extensionDirection}");
+            return extensionDirection;
+        }
+
+        // Debug.WriteLine($"Using fixed orientation: {blockPlacement.Orientation ?? LogicalOrientation.North}");
+        return blockPlacement.Orientation ?? LogicalOrientation.North;
+    }
+
+    private LogicalOrientation ReverseDirection(LogicalOrientation direction)
+    {
+        return direction switch
+        {
+            LogicalOrientation.North => LogicalOrientation.South,
+            LogicalOrientation.South => LogicalOrientation.North,
+            LogicalOrientation.East => LogicalOrientation.West,
+            LogicalOrientation.West => LogicalOrientation.East,
+            _ => direction
+        };
     }
 
     private (int deltaX, int deltaZ) GetDirectionOffset(LogicalOrientation direction)
@@ -456,13 +530,115 @@ public class ExportService
             LogicalOrientation.East => (1, 0),
             LogicalOrientation.South => (0, 1),
             LogicalOrientation.West => (-1, 0),
+            LogicalOrientation.Auto => (0, 0), // Should not reach here
             _ => (0, 0)
         };
     }
 
+    private LogicalOrientation DetermineAutoExtensionDirection(Placement placement, int loaderRow, int loaderCol, int maxDistance)
+    {
+        var directions = new[] { LogicalOrientation.North, LogicalOrientation.East, LogicalOrientation.South, LogicalOrientation.West };
+        LogicalOrientation bestDirection = LogicalOrientation.North;
+        int bestScore = int.MinValue;
+
+        LogicalOrientation placementOrientation = ToLogicalOrientationFromPlacementRotation(placement.RotationIndex);
+
+        int worldLoaderRow = placement.Row + loaderRow;
+        int worldLoaderCol = placement.Col + loaderCol;
+
+        var directionsWithClips = new List<LogicalOrientation>();
+
+        //Debug.WriteLine($"Placement rotation index: {placement.RotationIndex}, logical orientation: {placementOrientation}");
+
+        foreach (var direction in directions)
+        {
+            // this is jank but whatever
+            var (deltaX, deltaZ) = GetDirectionOffset(direction);
+            int score = 0;
+            bool encroachesOtherPlacement = false;
+            bool hasReachedClip = false;
+            bool isWithinGrid = true;
+
+            int dist = 1;
+            int checkRow = loaderRow + (deltaZ * dist);
+            int checkCol = loaderCol + (deltaX * dist);
+
+            int worldCheckRow = placement.Row + checkRow;
+            int worldCheckCol = placement.Col + checkCol;
+
+            bool isWithinCurrentPlacement = placement.CoveredCells.Any(c => c.r == worldCheckRow && c.c == worldCheckCol);
+
+            if (!isWithinCurrentPlacement)
+            {
+                score = -1000;
+                encroachesOtherPlacement = true;
+            }
+            else
+            {
+                if (checkRow >= 0 && checkRow < placement.Grid.GetLength(0) &&
+                    checkCol >= 0 && checkCol < placement.Grid.GetLength(1))
+                {
+                    var cellType = placement.Grid[checkRow, checkCol];
+                    if (cellType != null && !cellType.IsEmpty)
+                    {
+                        score += 30;
+
+                        if (cellType.Name == "Clip")
+                        {
+                            score += 500;
+                            hasReachedClip = true;
+                            directionsWithClips.Add(direction);
+                        }
+                    }
+                }
+                else
+                {
+                    score -= 200;
+                    isWithinGrid = false;
+                }
+
+                if (direction == placementOrientation)
+                {
+                    score += 50;
+                }
+
+                for (int adjacentDist = 2; adjacentDist <= maxDistance && adjacentDist <= 3; adjacentDist++)
+                {
+                    int adjCheckRow = loaderRow + (deltaZ * adjacentDist);
+                    int adjCheckCol = loaderCol + (deltaX * adjacentDist);
+
+                    if (adjCheckRow >= 0 && adjCheckRow < placement.Grid.GetLength(0) &&
+                        adjCheckCol >= 0 && adjCheckCol < placement.Grid.GetLength(1))
+                    {
+                        var adjCellType = placement.Grid[adjCheckRow, adjCheckCol];
+                        if (adjCellType != null && !adjCellType.IsEmpty && adjCellType.Name == "Clip")
+                        {
+                            score += 100;
+                        }
+                    }
+                }
+            }
+            /*
+            Debug.WriteLine($"Direction {direction}: " +
+                $"score={score}, " +
+                $"withinPlacement={isWithinCurrentPlacement}, " +
+                $"withinGrid={isWithinGrid}, " +
+                $"reachedClip={hasReachedClip}, " +
+                $"encroachesOther={encroachesOtherPlacement}");
+            */
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestDirection = direction;
+            }
+        }
+
+        // Debug.WriteLine($"Auto extension direction for loader at ({loaderRow},{loaderCol}): {bestDirection} (score: {bestScore})");
+        return bestDirection;
+    }
+
     private void PreProcessConfig()
     {
-        // --- Cache shared data ---
         _sharedBlockDataCache.Clear();
         if (_config.SharedBlockData != null)
         {
@@ -472,7 +648,6 @@ public class ExportService
             }
         }
 
-        // --- Populate lookup and resolve shared data references ---
         _blockDefLookup.Clear();
         if (_config.BasicBlockDefinitions == null) return;
 
@@ -482,7 +657,6 @@ public class ExportService
             if (blockDef == null) continue;
 
             // --- Resolve shared block data reference ---
-            // Start with value directly in BlockData (if any)
             string? resolvedBlockData = blockDef.BlockData;
 
             // If UseSharedBlockData specified, try to overwrite with shared data
@@ -576,7 +750,7 @@ public class ExportService
                 {
                     // No valid range exists
                     Debug.WriteLine($"Height rule conflict (Mixed): First valid step {firstValidMultiple} exceeds max bound {overallMax}.");
-                    return (1, 0, step); // Return impossible range (min > max)
+                    return (1, 0, step); // Impossible range (min > max)
                 }
 
                 int lastValidMultiple = overallMax / step * step; // Round down
@@ -604,7 +778,7 @@ public class ExportService
             return (overallMin, overallMax, step);
         }
 
-        Debug.WriteLine($"Calculated Height Rules: Min={overallMin}, Max={overallMax}, Step={step}");
+        // Debug.WriteLine($"Calculated Height Rules: Min={overallMin}, Max={overallMax}, Step={step}");
         return (overallMin, overallMax, step);
     }
 
@@ -630,10 +804,9 @@ public class ExportService
             throw new ArgumentException("Solution placements cannot be null or empty.", nameof(solutionPlacements));
         }
 
-        // Generate all potential blocks from placements
         var potentialBlocks = GeneratePotentialBlocks(solutionPlacements, targetHeight);
 
-        // Generate additional layer blocks if requested
+        // Generate additional layer blocks if needed
         if (includeAdditionalLayers)
         {
             var additionalBlocks = GenerateAdditionalLayerBlocks(solutionPlacements, targetHeight);
@@ -643,10 +816,10 @@ public class ExportService
         // Resolve overlaps and calculate cost
         var (resolvedBlocks, totalMaterialCost) = ResolveOverlaps(potentialBlocks);
 
-        // Assemble the final blueprint structure
+        // Assemble the final blueprint
         var blueprintRoot = AssembleFinalBlueprint(resolvedBlocks, totalMaterialCost, blueprintName, targetHeight);
 
-        // Serialize to JSON
+        // To JSON
         string json = JsonConvert.SerializeObject(blueprintRoot, Formatting.Indented, new JsonSerializerSettings
         {
             NullValueHandling = NullValueHandling.Include // Just in case they're needed
@@ -1090,5 +1263,19 @@ public class ExportService
         RotationDirection.West => LogicalOrientation.West,
         _ => LogicalOrientation.North,
     };
+
+    private static LogicalOrientation ToLogicalOrientationFromPlacementRotation(int rotationIndex)
+    {
+        var result = rotationIndex switch
+        {
+            0 => LogicalOrientation.North,
+            1 => LogicalOrientation.East,
+            2 => LogicalOrientation.South,
+            3 => LogicalOrientation.West,
+            _ => LogicalOrientation.North,
+        };
+        // Debug.WriteLine($"ToLogicalOrientationFromPlacementRotation: rotationIndex={rotationIndex} -> {result}");
+        return result;
+    }
 
 }

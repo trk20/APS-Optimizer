@@ -17,7 +17,7 @@ public partial class ExportDialogViewModel : ObservableObject
     }
 
     public string EffectiveHeightText => IncludeBottomLayer && ShowBottomLayerOption
-        ? $"Effective Height: {TargetHeight + 1}m (includes bottom layer)"
+        ? $"Effective Height: {TargetHeight + 1}m"
         : $"Target Height: {TargetHeight}m";
 
     private int _targetHeight = 1;
@@ -119,11 +119,11 @@ public partial class ExportDialogViewModel : ObservableObject
 
 
     public string TotalCostText => TotalCost.HasValue
-        ? $"Total Material Cost: {TotalCost.Value:F0}{(IncludeBottomLayer ? " (with bottom layer)" : "")}"
+        ? $"Total Material Cost: {TotalCost.Value:F0}"
         : "Cost: N/A";
 
     public string TotalBlockCountText => BlockCount.HasValue
-        ? $"Block Count: {BlockCount.Value}{(IncludeBottomLayer ? " (with bottom layer)" : "")}"
+        ? $"Block Count: {BlockCount.Value}"
         : "Block Count: N/A";
 
     public ExportDialogViewModel(
@@ -143,10 +143,8 @@ public partial class ExportDialogViewModel : ObservableObject
 
         _targetHeight = Math.Clamp(minHeight, _minHeight, _maxHeight);
 
-        // Check if additional layers are available
         _showBottomLayerOption = exportService.HasAdditionalLayers(solutionPlacements);
 
-        // Calculate initial cost
         CalculateCost();
     }
 
