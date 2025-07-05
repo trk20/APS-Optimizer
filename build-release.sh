@@ -1,0 +1,1 @@
+MSBuild.exe /m /r /target:Publish /p:Configuration=Release /p:PublishProfile="APS_Optimizer_V3\Properties\PublishProfiles\ClickOnceProfile.pubxml" /p:TargetFramework=net8.0-desktop

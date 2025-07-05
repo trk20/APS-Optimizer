@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
+using System.Threading;
 using APS_Optimizer_V3.Helpers;
 using APS_Optimizer_V3.ViewModels;
 
@@ -8,10 +9,43 @@ namespace APS_Optimizer_V3.Services;
 
 public class SolverService
 {
-    private const string CryptoMiniSatPath = "cryptominisat5.exe";
+    private static string? CryptoMiniSatPath = null;
+    private static readonly SemaphoreSlim InitializationSemaphore = new(1, 1);
+
+    public SolverService()
+    {
+        // No synchronous initialization - defer to first use
+    }
+
+    private async Task EnsureCryptoMiniSatInitialized()
+    {
+        if (CryptoMiniSatPath != null) return;
+
+        await InitializationSemaphore.WaitAsync();
+        try
+        {
+            if (CryptoMiniSatPath != null) return; // Double-check after acquiring lock
+
+            Debug.WriteLine("Initializing CryptoMiniSat...");
+            CryptoMiniSatPath = await CryptoMiniSatDownloader.EnsureCryptoMiniSatAvailable();
+            Debug.WriteLine($"CryptoMiniSat initialized at: {CryptoMiniSatPath}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error initializing CryptoMiniSat: {ex.Message}");
+            throw new InvalidOperationException("Failed to initialize SAT solver service.", ex);
+        }
+        finally
+        {
+            InitializationSemaphore.Release();
+        }
+    }
 
     public async Task<SolverResult> SolveAsync(SolveParameters parameters, IProgress<string>? progress = null)
     {
+        // Ensure CryptoMiniSat is available before starting
+        await EnsureCryptoMiniSatInitialized();
+
         var stopwatch = Stopwatch.StartNew();
         Debug.WriteLine($"Solver started. Grid: {parameters.GridWidth}x{parameters.GridHeight}, Shapes: {parameters.EnabledShapes.Count}, Symmetry: {parameters.SelectedSymmetry}");
 
@@ -374,7 +408,7 @@ public class SolverService
 
     private async Task<(bool IsSat, List<int>? SolutionVariables, string? error)> RunSatSolver(string cnfContent, string? solverArgs = null)
     {
-        if (!File.Exists(CryptoMiniSatPath))
+        if (string.IsNullOrEmpty(CryptoMiniSatPath) || !File.Exists(CryptoMiniSatPath))
         {
             Debug.WriteLine($"Error: SAT Solver not found at '{CryptoMiniSatPath}'");
             return (false, null, $"SAT Solver not found at '{CryptoMiniSatPath}'");

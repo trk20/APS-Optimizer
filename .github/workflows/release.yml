@@ -1,0 +1,97 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*" # Triggers on version tags like v1.0.0
+  workflow_dispatch: # Allows manual triggering
+    inputs:
+      version:
+        description: "Release version"
+        required: true
+        default: "1.0.0"
+      release_notes:
+        description: "Release notes"
+        required: false
+        default: "- Automated release build"
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v1.3
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build and Publish ClickOnce
+        run: |
+          MSBuild.exe /m /r /target:Publish /p:Configuration=Release /p:PublishProfile="APS_Optimizer_V3\Properties\PublishProfiles\ClickOnceProfile.pubxml" /p:TargetFramework=net8.0-desktop
+
+      - name: Create release package
+        run: |
+          $version = if ($env:GITHUB_REF -match 'refs/tags/v(.+)') { $matches[1] } else { "${{ github.event.inputs.version }}" }
+          $releaseName = "APS-Optimizer-v$version"
+
+          New-Item -ItemType Directory -Path "release-staging" -Force
+
+          # Copy files excluding .pdb files
+          $sourceDir = "APS_Optimizer_V3\bin\Release\net8.0-desktop\win-x64\app.publish"
+          $tempDir = "release-staging\temp"
+          New-Item -ItemType Directory -Path $tempDir -Force
+
+          Get-ChildItem -Path $sourceDir -Recurse | Where-Object { $_.Extension -ne ".pdb" } | ForEach-Object {
+              $relativePath = $_.FullName.Substring($sourceDir.Length + 1)
+              $destinationPath = Join-Path $tempDir $relativePath
+              $destinationDir = Split-Path $destinationPath -Parent
+              
+              if (-not (Test-Path $destinationDir)) {
+                  New-Item -ItemType Directory -Path $destinationDir -Force
+              }
+              
+              if ($_.PSIsContainer) {
+                  # Skip directories, they'll be created as needed
+              } else {
+                  Copy-Item $_.FullName $destinationPath
+              }
+          }
+
+          Compress-Archive -Path "$tempDir\*" -DestinationPath "release-staging\$releaseName.zip"
+          Remove-Item -Path $tempDir -Recurse -Force
+
+          echo "RELEASE_NAME=$releaseName" >> $env:GITHUB_ENV
+          echo "VERSION=$version" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: ${{ env.RELEASE_NAME }}
+          body: |
+            ## Release Notes
+            ${{ github.event.inputs.release_notes }}
+
+            ## Installation
+            1. Download the zip file
+            2. Extract it to a folder
+            3. Run setup.exe
+
+            Feel free to delete the zip file and extracted files after installation.
+
+          files: |
+            release-staging/*.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
