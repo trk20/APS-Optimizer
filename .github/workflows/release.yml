@@ -51,22 +51,26 @@ jobs:
           New-Item -ItemType Directory -Path $tempDir -Force
 
           Get-ChildItem -Path $sourceDir -Recurse | Where-Object { $_.Extension -ne ".pdb" } | ForEach-Object {
-              $relativePath = $_.FullName.Substring($sourceDir.Length + 1)
-              $destinationPath = Join-Path $tempDir $relativePath
-              $destinationDir = Split-Path $destinationPath -Parent
-              
-              if (-not (Test-Path $destinationDir)) {
-                  New-Item -ItemType Directory -Path $destinationDir -Force
-              }
-              
               if ($_.PSIsContainer) {
                   # Skip directories, they'll be created as needed
               } else {
+                  $relativePath = $_.FullName.Substring($sourceDir.Length + 1)
+                  $destinationPath = Join-Path $tempDir $relativePath
+                  $destinationDir = Split-Path $destinationPath -Parent
+                  
+                  if (-not (Test-Path $destinationDir)) {
+                      New-Item -ItemType Directory -Path $destinationDir -Force
+                  }
+                  
                   Copy-Item $_.FullName $destinationPath
               }
           }
 
-          Compress-Archive -Path "$tempDir\*" -DestinationPath "release-staging\$releaseName.zip"
+          # Create zip with files at root level
+          Push-Location $tempDir
+          Compress-Archive -Path "*" -DestinationPath "..\..\$releaseName.zip"
+          Pop-Location
+
           Remove-Item -Path $tempDir -Recurse -Force
 
           echo "RELEASE_NAME=$releaseName" >> $env:GITHUB_ENV
