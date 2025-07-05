@@ -11,28 +11,20 @@ This tool provides a simple, user-friendly method to easily generate density-opt
 - Support for 3, 4, and 5-clip tetris.
 - Automatic turret layout templates, with the option to customize them for armour or extra space.
 - Hard and soft symmetry enforcement options, including both rotational and reflexive symmetry.
-- Export generated layouts directly to _From The Depths_ prefab file (`.blueprint`) for immidiate use in-game.
+- Export generated layouts directly to _From The Depths_ prefab file (`.blueprint`) for immediate use in-game.
 - Choose the resulting prefab height, mapped automatically to the respective blocks (loader/clip length variants).
+- Optionally include bottom layer of ejectors and ammo loaders in exported blueprint.
 
 ---
 
-## Requirements
+## Installation (Windows)
 
-- **cryptominisat5:** The advanced SAT solver used by this tool.
-  - You need to download the `cryptominisat5` exe separately from its official source [here](https://github.com/msoos/cryptominisat/releases). Ensure the executable (`cryptominisat5.exe` on Windows) is available in your system's PATH or placed in the same directory as this tool.
-- **.NET 8.0 Desktop Runtime:**
-  - Currently required due to complications with WinUI for self-contained apps that I haven't figured out yet.
-  - Trying to start the application should prompt you to download the runtime automatically, but if that doesn't happen you can get it [here](https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/8.0.15/windowsdesktop-runtime-8.0.15-win-x64.exe).
-
----
-
-## Installation
-
-1. Download APS_Optimizer.zip from the [latest release](https://github.com/trk20/APS-Optimizer/releases).
-2. Extract to wherever you want to keep the app.
-3. Download `cryptominisat5.exe` from their [latest release](https://github.com/msoos/cryptominisat/releases)
-4. Either try to run the app (which should prompt for the desktop runtime) or install it from [here](https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/8.0.15/windowsdesktop-runtime-8.0.15-win-x64.exe)
-5. When Windows gives a "Windows protected your PC" the first time, click on "Run anyway"
+1. Download `APS-Optimizer-{version}.zip` from the [latest release](https://github.com/trk20/APS-Optimizer/releases).
+2. Extract the contents to a folder.
+3. Run the contained `setup.exe` executable ![setup-exe](readme-images/setup-exe.png)
+4. When Windows gives the "Application Install - Security Warning" click on "Install" ![install-confirmation](readme-images/install-confirmation.png)
+   This will install the app, all its dependencies, create a start menu shortcut, and launch the app once complete.
+5. (Optional) Delete the zip file and extracted folder.
 
 ---
 
@@ -57,14 +49,14 @@ Chosen symmetry will be displayed on editor and result displays.
 
 **Rotational (90/180 degrees)**
 
-|Symmetry (Blank)|Example Solution|
-|-|-|
+| Symmetry (Blank)                            | Example Solution                                          |
+| ------------------------------------------- | --------------------------------------------------------- |
 | ![rotational](readme-images/rotational.png) | ![rotational-result](readme-images/rotational-result.png) |
 
 **Reflexive (Vertical/Horizontal/Quadrants)**
 
-|Symmetry (Blank)|Example Solution|
-|-|-|
+| Symmetry (Blank)                          | Example Solution                                        |
+| ----------------------------------------- | ------------------------------------------------------- |
 | ![reflexive](readme-images/reflexive.png) | ![reflexive-result](readme-images/reflexive-result.png) |
 
 #### Soft vs Hard Symmetry (3)
@@ -126,7 +118,7 @@ When a solution is ready, you'll be able to use the export menu by pressing the 
 
 ![export-button](readme-images/export-button.png)
 
-This will give you a pop-up menu displaying the number of each shape placed, the total material cost, and the block count for the generated prefab. You can select the result height using the target height (between 1 and 8 for 3-clip and 4-clip).
+This will give you a pop-up menu displaying the number of each shape placed, the total material cost, and the block count for the generated prefab. You can select the result height using the target height (between 1 and 8 for 3-clip and 4-clip). If exporting 3 or 4 clip tetris, there will be an option to include the bottom ejector and ammo intake layer.
 Pressing "Save" will allow you to navigate and save the prefab to your From The Depths prefab folder or a subfolder to allow placement in-game - located at `...\From The Depths\Player Profiles\{username}\PrefabsVersion2\`.
 
 ![save-blueprint](readme-images/save-blueprint.png)
@@ -173,7 +165,7 @@ Note: for making and testing changes to the codebase, you'll need to be able to 
 
 ## Acknowledgements
 
-- Thanks to the developers of `cryptominisat5` for their powerful SAT solver
+- Thanks to the developers of `cryptominisat5` for their [powerful SAT solver](https://github.com/msoos/cryptominisat) - this tool uses it directly to do the brunt of the optimization. Suffice it to say this tool would not be nearly as good without this fantastic SAT solver.
 - Thanks to **sascha** on stackoverflow for their fantastic [answer on a polynomio grid-packing question](https://stackoverflow.com/a/47934736) that served as the basis for this tool's core logic.
 
 ## License

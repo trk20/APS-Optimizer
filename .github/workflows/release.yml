@@ -44,7 +44,30 @@ jobs:
           $releaseName = "APS-Optimizer-v$version"
 
           New-Item -ItemType Directory -Path "release-staging" -Force
-          Compress-Archive -Path "APS_Optimizer_V3\bin\Release\net8.0-desktop\win-x64\app.publish\*" -DestinationPath "release-staging\$releaseName.zip"
+
+          # Copy files excluding .pdb files
+          $sourceDir = "APS_Optimizer_V3\bin\Release\net8.0-desktop\win-x64\app.publish"
+          $tempDir = "release-staging\temp"
+          New-Item -ItemType Directory -Path $tempDir -Force
+
+          Get-ChildItem -Path $sourceDir -Recurse | Where-Object { $_.Extension -ne ".pdb" } | ForEach-Object {
+              $relativePath = $_.FullName.Substring($sourceDir.Length + 1)
+              $destinationPath = Join-Path $tempDir $relativePath
+              $destinationDir = Split-Path $destinationPath -Parent
+              
+              if (-not (Test-Path $destinationDir)) {
+                  New-Item -ItemType Directory -Path $destinationDir -Force
+              }
+              
+              if ($_.PSIsContainer) {
+                  # Skip directories, they'll be created as needed
+              } else {
+                  Copy-Item $_.FullName $destinationPath
+              }
+          }
+
+          Compress-Archive -Path "$tempDir\*" -DestinationPath "release-staging\$releaseName.zip"
+          Remove-Item -Path $tempDir -Recurse -Force
 
           echo "RELEASE_NAME=$releaseName" >> $env:GITHUB_ENV
           echo "VERSION=$version" >> $env:GITHUB_ENV
