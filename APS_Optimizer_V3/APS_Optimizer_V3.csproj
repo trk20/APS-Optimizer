@@ -45,7 +45,9 @@
     </UnoFeatures>
     <UnoIconForegroundFile>Assets\Icons\icon_foreground.svg</UnoIconForegroundFile>
     <UnoIconBackgroundFile>Assets\Icons\icon.svg</UnoIconBackgroundFile>
-    <UnoIconColor>#FFFFFF</UnoIconColor>
+    <UnoIconColor>#FFFFFF</UnoIconColor>    
+    <!-- Add icon for ClickOnce -->
+    <ApplicationIcon>Assets\Icons\icon.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <Content Update="*">

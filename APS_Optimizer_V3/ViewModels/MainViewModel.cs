@@ -274,6 +274,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             Debug.WriteLine($"FATAL: Failed to initialize ExportService: {ex}");
             throw;
         }
+
         AvailableShapes.CollectionChanged += AvailableShapes_CollectionChanged;
         RebuildGrids(SelectedTemplate);
         InitializeShapes();
