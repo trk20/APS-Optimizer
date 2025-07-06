@@ -98,6 +98,7 @@ jobs:
             ## Installation
             1. Download and extract the zip file
             2. Run APS_Optimizer_V3.exe - no installation required!
+            3. If Windows blocks the app, click "More Info" then "Run Anyway" to bypass the warning
 
             ## Requirements
             - Windows 10 or later
