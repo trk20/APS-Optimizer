@@ -22,9 +22,13 @@ This tool provides a simple, user-friendly method to easily generate density-opt
 1. Download `APS-Optimizer-{version}.zip` from the [latest release](https://github.com/trk20/APS-Optimizer/releases).
 2. Extract the contents to a folder.
 3. Run the contained `APS_Optimizer_V3.exe` executable
-4. When Windows gives the "Windows protected your PC" popup click on "More Info" then "Run Anyways" ![run-confirmation-1](readme-images/run-confirmation-1.png) ![run-confirmation-2](readme-images/run-confirmation-2.png)
-   This will prompt for the .NET 8.0 runtime if needed.
-5. All done - you can move the folder (and all its contents) anywhere you feel and/or create a shortcut to the exe.
+4. When Windows gives the "Windows protected your PC" popup click on "More Info" then "Run Anyways"
+
+| _More Info_                                                 | _Run Anyways_                                               |
+| ----------------------------------------------------------- | ----------------------------------------------------------- |
+| ![run-confirmation-1](readme-images/run-confirmation-1.png) | ![run-confirmation-2](readme-images/run-confirmation-2.png) |
+
+This will prompt for the .NET 8.0 runtime if needed. 5. All done - you can move the folder (and all its contents) anywhere you feel and/or create a shortcut to the exe.
 
 **Q:** Why does windows block the program?
 
