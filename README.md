@@ -21,10 +21,14 @@ This tool provides a simple, user-friendly method to easily generate density-opt
 
 1. Download `APS-Optimizer-{version}.zip` from the [latest release](https://github.com/trk20/APS-Optimizer/releases).
 2. Extract the contents to a folder.
-3. Run the contained `setup.exe` executable ![setup-exe](readme-images/setup-exe.png)
-4. When Windows gives the "Application Install - Security Warning" click on "Install" ![install-confirmation](readme-images/install-confirmation.png)
-   This will install the app, all its dependencies, create a start menu shortcut, and launch the app once complete.
-5. (Optional) Delete the zip file and extracted folder.
+3. Run the contained `APS_Optimizer_V3.exe` executable
+4. When Windows gives the "Windows protected your PC" popup click on "More Info" then "Run Anyways" ![run-confirmation-1](readme-images/run-confirmation-1.png) ![run-confirmation-2](readme-images/run-confirmation-2.png)
+   This will prompt for the .NET 8.0 runtime if needed.
+5. All done - you can move the folder (and all its contents) anywhere you feel and/or create a shortcut to the exe.
+
+**Q:** Why does windows block the program?
+
+**A:** The executable is "unsigned" - it doesn't have a special signature saying who made it, when, etc so it can't say whether or not it's safe. Reason it isn't signed is that that signing an exe is a pain - if you know better and think it's easy, feel free to create a PR for the workflow changes and I'll get it merged.
 
 ---
 
