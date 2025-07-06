@@ -76,10 +76,10 @@ jobs:
           $tempPath = (Resolve-Path $tempDir).Path
           $zipPath = (Resolve-Path "release-staging").Path + "\$releaseName.zip"
 
-          Set-Location $tempPath
-          Compress-Archive -Path "*" -DestinationPath $zipPath -Force
-          Set-Location $PSScriptRoot
+          # Create zip from temp directory contents
+          Compress-Archive -Path "$tempDir\*" -DestinationPath $zipPath -Force
 
+          # Clean up temp directory
           Remove-Item -Path $tempDir -Recurse -Force
 
           Write-Output "RELEASE_NAME=$releaseName" >> $env:GITHUB_ENV
