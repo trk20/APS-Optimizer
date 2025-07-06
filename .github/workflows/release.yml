@@ -50,6 +50,10 @@ jobs:
           $tempDir = "release-staging\temp"
           New-Item -ItemType Directory -Path $tempDir -Force
 
+          Write-Host "Source directory: $sourceDir"
+          Write-Host "Temp directory: $tempDir"
+          Write-Host "Release name: $releaseName"
+
           Get-ChildItem -Path $sourceDir -Recurse | Where-Object { $_.Extension -ne ".pdb" } | ForEach-Object {
               if ($_.PSIsContainer) {
                   # Skip directories, they'll be created as needed
@@ -66,10 +70,18 @@ jobs:
               }
           }
 
-          # Create zip with files at root level
-          $zipPath = "release-staging\$releaseName.zip"
-          Push-Location $tempDir
-          Compress-Archive -Path "*" -DestinationPath "..\$releaseName.zip"
+          Write-Host "Files copied to temp directory. Contents:"
+          Get-ChildItem -Path $tempDir -Recurse | ForEach-Object { Write-Host "  $($_.FullName)" }
+
+          # Create zip with files at root level using absolute paths
+          $fullTempPath = (Resolve-Path $tempDir).Path
+          $fullZipPath = (Resolve-Path "release-staging").Path + "\$releaseName.zip"
+
+          Write-Host "Creating zip from: $fullTempPath"
+          Write-Host "Zip destination: $fullZipPath"
+
+          Push-Location $fullTempPath
+          Compress-Archive -Path "*" -DestinationPath $fullZipPath -Force
           Pop-Location
 
           Remove-Item -Path $tempDir -Recurse -Force
