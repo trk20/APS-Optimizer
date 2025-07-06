@@ -28,7 +28,9 @@ This tool provides a simple, user-friendly method to easily generate density-opt
 | ----------------------------------------------------------- | ----------------------------------------------------------- |
 | ![run-confirmation-1](readme-images/run-confirmation-1.png) | ![run-confirmation-2](readme-images/run-confirmation-2.png) |
 
-This will prompt for the .NET 8.0 runtime if needed. 5. All done - you can move the folder (and all its contents) anywhere you feel and/or create a shortcut to the exe.
+This will prompt for the .NET 8.0 runtime if needed.
+
+5. All done - you can move the folder (and all its contents) anywhere you feel and/or create a shortcut to the exe.
 
 **Q:** Why does windows block the program?
 
