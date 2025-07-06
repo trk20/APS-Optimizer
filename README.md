@@ -32,7 +32,7 @@ This will prompt for the .NET 8.0 runtime if needed. 5. All done - you can move 
 
 **Q:** Why does windows block the program?
 
-**A:** The executable is "unsigned" - it doesn't have a special signature saying who made it, when, etc so it can't say whether or not it's safe. Reason it isn't signed is that that signing an exe is a pain - if you know better and think it's easy, feel free to create a PR for the workflow changes and I'll get it merged.
+**A:** The executable is "unsigned" - it doesn't have a special signature/certificate saying who made it, when, etc so windows can't tell whether or not it's safe. Reason it isn't signed is that that signing an exe is a pain - if you know better and think it's easy, feel free to create a PR for the workflow changes and I'll get it merged.
 
 ---
 
