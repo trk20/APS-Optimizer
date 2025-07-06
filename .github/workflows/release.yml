@@ -28,9 +28,6 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v1.3
-
       - name: Restore dependencies
         run: dotnet restore
 
@@ -66,20 +63,7 @@ jobs:
           }
 
           # Create README file
-          $readmeContent = @"
-# APS Optimizer v$version
-
-## How to Run
-Simply run APS_Optimizer_V3.exe - no installation required!
-
-## Requirements
-- Windows 10 or later
-- .NET 8 Desktop Runtime (you'll be prompted to install if missing)
-
-## Notes
-- Keep all files in the same folder
-- The application is portable - you can move the entire folder anywhere
-"@
+          $readmeContent = "# APS Optimizer v$version`n`n## How to Run`nSimply run APS_Optimizer_V3.exe - no installation required!`n`n## Requirements`n- Windows 10 or later`n- .NET 8 Desktop Runtime (you'll be prompted to install if missing)`n`n## Notes`n- Keep all files in the same folder`n- The application is portable - you can move the entire folder anywhere"
 
           $readmeContent | Out-File -FilePath "$tempDir\README.txt" -Encoding UTF8
 
@@ -110,17 +94,17 @@ Simply run APS_Optimizer_V3.exe - no installation required!
             ${{ github.event.inputs.release_notes }}
 
             ## Installation
-            1. Download the executable file
-            2. Run it directly - no installation required!
+            1. Download and extract the zip file
+            2. Run APS_Optimizer_V3.exe - no installation required!
 
             ## Requirements
             - Windows 10 or later
             - .NET 8 Desktop Runtime (you'll be prompted to install if missing)
 
-            **Note: This is a single executable file with no installation required.**
+            **Note: This is a portable application - keep all files together.**
 
           files: |
-            release-staging/*.exe
+            release-staging/*.zip
           draft: false
           prerelease: false
         env:
