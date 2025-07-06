@@ -34,9 +34,9 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
-      - name: Build and Publish ClickOnce
+      - name: Build and Publish Application
         run: |
-          MSBuild.exe /m /r /target:Publish /p:Configuration=Release /p:PublishProfile="APS_Optimizer_V3\Properties\PublishProfiles\ClickOnceProfile.pubxml" /p:TargetFramework=net8.0-desktop /p:RuntimeIdentifier=win-x64 /p:SelfContained=false /p:PublishSingleFile=true
+          dotnet publish "APS_Optimizer_V3/APS_Optimizer_V3.csproj" --configuration Release --framework net8.0-desktop --runtime win-x64 --self-contained false -p:PublishSingleFile=true --output "publish-output"
 
       - name: Create release package
         run: |
@@ -44,23 +44,17 @@ jobs:
           $releaseName = "APS-Optimizer-v$version"
 
           New-Item -ItemType Directory -Path "release-staging" -Force
-
-          # Copy files excluding .pdb files - directly from app.publish to temp root
-          $sourceDir = "APS_Optimizer_V3\bin\Release\net8.0-desktop\win-x64\app.publish"
           $tempDir = "release-staging\temp"
           New-Item -ItemType Directory -Path $tempDir -Force
 
-          Write-Host "Source directory: $sourceDir"
-          Write-Host "Temp directory: $tempDir"
-          Write-Host "Release name: $releaseName"
+          Write-Host "Creating release package: $releaseName"
 
-          # Copy everything from app.publish directly to temp (excluding .pdb files)
+          # Copy all files except .pdb files
+          $sourceDir = "publish-output"
           Get-ChildItem -Path $sourceDir -Recurse | Where-Object { 
-              -not $_.PSIsContainer -and $_.Extension -ne ".pdb" -and $_.Name -notlike "*.pdb.deploy"
+              -not $_.PSIsContainer -and $_.Extension -ne ".pdb"
           } | ForEach-Object {
-              # Calculate relative path from the app.publish directory
-              $sourceFullPath = Resolve-Path $sourceDir
-              $relativePath = $_.FullName.Substring($sourceFullPath.Path.Length + 1)
+              $relativePath = $_.FullName.Substring((Resolve-Path $sourceDir).Path.Length + 1)
               $destinationPath = Join-Path $tempDir $relativePath
               $destinationDir = Split-Path $destinationPath -Parent
               
@@ -71,15 +65,30 @@ jobs:
               Copy-Item $_.FullName $destinationPath
           }
 
-          Write-Host "Files copied to temp directory. Root contents:"
+          # Create README file
+          $readmeContent = @"
+# APS Optimizer v$version
+
+## How to Run
+Simply run APS_Optimizer_V3.exe - no installation required!
+
+## Requirements
+- Windows 10 or later
+- .NET 8 Desktop Runtime (you'll be prompted to install if missing)
+
+## Notes
+- Keep all files in the same folder
+- The application is portable - you can move the entire folder anywhere
+"@
+
+          $readmeContent | Out-File -FilePath "$tempDir\README.txt" -Encoding UTF8
+
+          Write-Host "Files in release package:"
           Get-ChildItem -Path $tempDir | ForEach-Object { Write-Host "  $($_.Name)" }
 
-          # Create zip with files at root level using absolute paths
+          # Create zip
           $fullTempPath = (Resolve-Path $tempDir).Path
           $fullZipPath = (Resolve-Path "release-staging").Path + "\$releaseName.zip"
-
-          Write-Host "Creating zip from: $fullTempPath"
-          Write-Host "Zip destination: $fullZipPath"
 
           Push-Location $fullTempPath
           Compress-Archive -Path "*" -DestinationPath $fullZipPath -Force
@@ -101,14 +110,17 @@ jobs:
             ${{ github.event.inputs.release_notes }}
 
             ## Installation
-            1. Download the zip file
-            2. Extract it to a folder
-            3. Run setup.exe
+            1. Download the executable file
+            2. Run it directly - no installation required!
 
-            Feel free to delete the zip file and extracted files after installation.
+            ## Requirements
+            - Windows 10 or later
+            - .NET 8 Desktop Runtime (you'll be prompted to install if missing)
+
+            **Note: This is a single executable file with no installation required.**
 
           files: |
-            release-staging/*.zip
+            release-staging/*.exe
           draft: false
           prerelease: false
         env:
