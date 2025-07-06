@@ -67,8 +67,9 @@ jobs:
           }
 
           # Create zip with files at root level
+          $zipPath = "release-staging\$releaseName.zip"
           Push-Location $tempDir
-          Compress-Archive -Path "*" -DestinationPath "..\..\$releaseName.zip"
+          Compress-Archive -Path "*" -DestinationPath "..\$releaseName.zip"
           Pop-Location
 
           Remove-Item -Path $tempDir -Recurse -Force
