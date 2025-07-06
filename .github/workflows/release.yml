@@ -40,48 +40,50 @@ jobs:
           $version = if ($env:GITHUB_REF -match 'refs/tags/v(.+)') { $matches[1] } else { "${{ github.event.inputs.version }}" }
           $releaseName = "APS-Optimizer-v$version"
 
-          New-Item -ItemType Directory -Path "release-staging" -Force
+          # Create directories
+          if (!(Test-Path "release-staging")) { New-Item -ItemType Directory -Path "release-staging" }
           $tempDir = "release-staging\temp"
-          New-Item -ItemType Directory -Path $tempDir -Force
+          if (!(Test-Path $tempDir)) { New-Item -ItemType Directory -Path $tempDir }
 
           Write-Host "Creating release package: $releaseName"
 
-          # Copy all files except .pdb files
+          # Copy files excluding debug symbols
           $sourceDir = "publish-output"
-          Get-ChildItem -Path $sourceDir -Recurse | Where-Object { 
-              -not $_.PSIsContainer -and $_.Extension -ne ".pdb"
-          } | ForEach-Object {
-              $relativePath = $_.FullName.Substring((Resolve-Path $sourceDir).Path.Length + 1)
+          $items = Get-ChildItem -Path $sourceDir -Recurse
+          foreach ($item in $items) {
+              if ($item.PSIsContainer -or $item.Extension -eq ".pdb") { continue }
+              
+              $sourcePath = $item.FullName
+              $relativePath = $sourcePath.Replace((Resolve-Path $sourceDir).Path, "").TrimStart("\")
               $destinationPath = Join-Path $tempDir $relativePath
               $destinationDir = Split-Path $destinationPath -Parent
               
-              if (-not (Test-Path $destinationDir)) {
+              if (!(Test-Path $destinationDir)) {
                   New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
               }
               
-              Copy-Item $_.FullName $destinationPath
+              Copy-Item $sourcePath $destinationPath
           }
 
-          # Create README file
-          $readmeContent = "# APS Optimizer v$version`n`n## How to Run`nSimply run APS_Optimizer_V3.exe - no installation required!`n`n## Requirements`n- Windows 10 or later`n- .NET 8 Desktop Runtime (you'll be prompted to install if missing)`n`n## Notes`n- Keep all files in the same folder`n- The application is portable - you can move the entire folder anywhere"
+          # Create documentation
+          $readmeText = "APS Optimizer v$version`r`n`r`nHow to Run:`r`nRun APS_Optimizer_V3.exe`r`n`r`nRequirements:`r`n- Windows 10+`r`n- .NET 8 Desktop Runtime`r`n`r`nKeep all files together."
+          Set-Content -Path "$tempDir\README.txt" -Value $readmeText -Encoding UTF8
 
-          $readmeContent | Out-File -FilePath "$tempDir\README.txt" -Encoding UTF8
-
-          Write-Host "Files in release package:"
+          Write-Host "Package contents:"
           Get-ChildItem -Path $tempDir | ForEach-Object { Write-Host "  $($_.Name)" }
 
-          # Create zip
-          $fullTempPath = (Resolve-Path $tempDir).Path
-          $fullZipPath = (Resolve-Path "release-staging").Path + "\$releaseName.zip"
+          # Create archive
+          $tempPath = (Resolve-Path $tempDir).Path
+          $zipPath = (Resolve-Path "release-staging").Path + "\$releaseName.zip"
 
-          Push-Location $fullTempPath
-          Compress-Archive -Path "*" -DestinationPath $fullZipPath -Force
-          Pop-Location
+          Set-Location $tempPath
+          Compress-Archive -Path "*" -DestinationPath $zipPath -Force
+          Set-Location $PSScriptRoot
 
           Remove-Item -Path $tempDir -Recurse -Force
 
-          echo "RELEASE_NAME=$releaseName" >> $env:GITHUB_ENV
-          echo "VERSION=$version" >> $env:GITHUB_ENV
+          Write-Output "RELEASE_NAME=$releaseName" >> $env:GITHUB_ENV
+          Write-Output "VERSION=$version" >> $env:GITHUB_ENV
         shell: pwsh
 
       - name: Create GitHub Release
