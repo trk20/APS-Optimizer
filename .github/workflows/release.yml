@@ -45,7 +45,7 @@ jobs:
 
           New-Item -ItemType Directory -Path "release-staging" -Force
 
-          # Copy files excluding .pdb files
+          # Copy files excluding .pdb files - directly from app.publish to temp root
           $sourceDir = "APS_Optimizer_V3\bin\Release\net8.0-desktop\win-x64\app.publish"
           $tempDir = "release-staging\temp"
           New-Item -ItemType Directory -Path $tempDir -Force
@@ -54,24 +54,25 @@ jobs:
           Write-Host "Temp directory: $tempDir"
           Write-Host "Release name: $releaseName"
 
-          Get-ChildItem -Path $sourceDir -Recurse | Where-Object { $_.Extension -ne ".pdb" } | ForEach-Object {
-              if ($_.PSIsContainer) {
-                  # Skip directories, they'll be created as needed
-              } else {
-                  $relativePath = $_.FullName.Substring($sourceDir.Length + 1)
-                  $destinationPath = Join-Path $tempDir $relativePath
-                  $destinationDir = Split-Path $destinationPath -Parent
-                  
-                  if (-not (Test-Path $destinationDir)) {
-                      New-Item -ItemType Directory -Path $destinationDir -Force
-                  }
-                  
-                  Copy-Item $_.FullName $destinationPath
+          # Copy everything from app.publish directly to temp (excluding .pdb files)
+          Get-ChildItem -Path $sourceDir -Recurse | Where-Object { 
+              -not $_.PSIsContainer -and $_.Extension -ne ".pdb" -and $_.Name -notlike "*.pdb.deploy"
+          } | ForEach-Object {
+              # Calculate relative path from the app.publish directory
+              $sourceFullPath = Resolve-Path $sourceDir
+              $relativePath = $_.FullName.Substring($sourceFullPath.Path.Length + 1)
+              $destinationPath = Join-Path $tempDir $relativePath
+              $destinationDir = Split-Path $destinationPath -Parent
+              
+              if (-not (Test-Path $destinationDir)) {
+                  New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
               }
+              
+              Copy-Item $_.FullName $destinationPath
           }
 
-          Write-Host "Files copied to temp directory. Contents:"
-          Get-ChildItem -Path $tempDir -Recurse | ForEach-Object { Write-Host "  $($_.FullName)" }
+          Write-Host "Files copied to temp directory. Root contents:"
+          Get-ChildItem -Path $tempDir | ForEach-Object { Write-Host "  $($_.Name)" }
 
           # Create zip with files at root level using absolute paths
           $fullTempPath = (Resolve-Path $tempDir).Path
