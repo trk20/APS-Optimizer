@@ -93,23 +93,23 @@ jobs:
           find release-staging/temp -name "*.pdb" -delete || true
           BIN_NAME="APS_Optimizer_V3_Linux"
           cat > release-staging/temp/README.txt <<EOF
-APS Optimizer v$VERSION
+          APS Optimizer v$VERSION
 
-How to Run:
-  chmod +x $BIN_NAME
-  ./$BIN_NAME
+          How to Run:
+            chmod +x $BIN_NAME
+            ./$BIN_NAME
 
-Requirements:
-  - Linux desktop (GTK3, WebKit2GTK)
-  - .NET 8 Runtime (framework-dependent build)
+          Requirements:
+            - Linux desktop (GTK3, WebKit2GTK)
+            - .NET 8 Runtime (framework-dependent build)
 
-Ubuntu dependencies example:
-  sudo apt-get update && sudo apt-get install -y libgtk-3-0 libwebkit2gtk-4.1-0 libicu-dev libharfbuzz0b libpango-1.0-0 libx11-6
+          Ubuntu dependencies example:
+            sudo apt-get update && sudo apt-get install -y libgtk-3-0 libwebkit2gtk-4.1-0 libicu-dev libharfbuzz0b libpango-1.0-0 libx11-6
 
-Solver:
-  CryptoMiniSat binary auto-downloads; override with CRYPTOMINISAT_PATH.
+          Solver:
+            CryptoMiniSat binary auto-downloads; override with CRYPTOMINISAT_PATH.
 
-Keep all files together.
+          Keep all files together.
 EOF
           (cd release-staging/temp && zip -r "../${RELEASE_NAME}.zip" .)
           rm -rf release-staging/temp
