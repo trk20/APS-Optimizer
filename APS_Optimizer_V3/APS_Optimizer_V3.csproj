@@ -45,11 +45,11 @@
       Configuration;
       ThemeService;
     </UnoFeatures>
-    <UnoIconForegroundFile>Assets\Icons\icon_foreground.svg</UnoIconForegroundFile>
-    <UnoIconBackgroundFile>Assets\Icons\icon.svg</UnoIconBackgroundFile>
+  <UnoIconForegroundFile>Assets/Icons/icon_foreground.svg</UnoIconForegroundFile>
+  <UnoIconBackgroundFile>Assets/Icons/icon.svg</UnoIconBackgroundFile>
     <UnoIconColor>#FFFFFF</UnoIconColor>    
     <!-- Add icon for ClickOnce -->
-    <ApplicationIcon>Assets\Icons\icon.ico</ApplicationIcon>
+  <ApplicationIcon>Assets/Icons/icon.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup Condition="'$(TargetFramework)'=='net8.0'">
     <UseAppHost>true</UseAppHost>
