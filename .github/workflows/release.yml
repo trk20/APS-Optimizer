@@ -45,26 +45,71 @@ jobs:
       - name: Restore
         run: dotnet restore
       - name: Publish (${{ matrix.rid }})
+        run: dotnet publish "${{ matrix.project }}" -c Release -f ${{ matrix.framework }} -r ${{ matrix.rid }} --self-contained false -o publish-output
+
+      - name: Package (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
         run: |
-          dotnet publish "${{ matrix.project }}" --configuration Release --framework ${{ matrix.framework }} --runtime ${{ matrix.rid }} --self-contained false --output publish-output
-      - name: Package (${{ matrix.rid }})
+          $versionTag = $env:GITHUB_REF -replace 'refs/tags/',''
+          if (-not ($versionTag -like 'v*')) { $versionTag = '${{ github.event.inputs.version }}' }
+          $version = $versionTag.TrimStart('v')
+          $releaseName = "APS-Optimizer-v$version-${{ matrix.zip_suffix }}"
+          New-Item -ItemType Directory -Path 'release-staging/temp' -Force | Out-Null
+          Copy-Item publish-output\* -Destination release-staging/temp -Recurse
+          Get-ChildItem -Recurse -Include *.pdb release-staging/temp | Remove-Item -Force -ErrorAction SilentlyContinue
+          @"
+APS Optimizer v$version
+
+How to Run:
+  Double-click APS_Optimizer_V3.exe
+
+Requirements:
+  - Windows 10/11
+  - .NET 8 Desktop Runtime (if not already installed)
+
+Notes:
+  * CryptoMiniSat downloads automatically on first solve.
+  * Set CRYPTOMINISAT_PATH to override solver path.
+
+Keep all files together.
+"@ | Set-Content release-staging/temp/README.txt -Encoding UTF8
+          Compress-Archive -Path release-staging/temp/* -DestinationPath release-staging/$releaseName.zip
+          Remove-Item release-staging/temp -Recurse -Force
+          "RELEASE_ARCHIVE=$releaseName.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Package (Linux)
+        if: matrix.os != 'windows-latest'
         shell: bash
         run: |
           VERSION_TAG="${GITHUB_REF##*/}"
           if [[ ! "$VERSION_TAG" =~ ^v ]]; then VERSION_TAG="${{ github.event.inputs.version }}"; fi
           VERSION="${VERSION_TAG#v}"
-          RELEASE_NAME="APS-Optimizer-v${VERSION}-${{ matrix.zip_suffix }}"
+            RELEASE_NAME="APS-Optimizer-v${VERSION}-${{ matrix.zip_suffix }}"
           mkdir -p release-staging/temp
           cp -r publish-output/* release-staging/temp/
-          # Remove PDBs if any
           find release-staging/temp -name "*.pdb" -delete || true
-          # README
-          if [ "${{ matrix.rid }}" = "win-x64" ]; then
-            echo -e "APS Optimizer v$VERSION\n\nHow to Run:\n  Double-click APS_Optimizer_V3.exe\n\nRequirements:\n  - Windows 10/11\n  - .NET 8 Desktop Runtime (if not already installed)\n\nNotes:\n  * CryptoMiniSat downloads automatically on first solve.\n  * Set CRYPTOMINISAT_PATH to override solver path.\n\nKeep all files together." > release-staging/temp/README.txt
-          else
-            BIN_NAME="APS_Optimizer_V3_Linux"
-            echo -e "APS Optimizer v$VERSION\n\nHow to Run:\n  chmod +x $BIN_NAME\n  ./$BIN_NAME\n\nRequirements:\n  - Linux desktop (GTK3, WebKit2GTK)\n  - .NET 8 Runtime (framework-dependent build)\n\nUbuntu dependencies example:\n  sudo apt-get update && sudo apt-get install -y libgtk-3-0 libwebkit2gtk-4.1-0 libicu-dev libharfbuzz0b libpango-1.0-0 libx11-6\n\nSolver:\n  CryptoMiniSat binary auto-downloads; override with CRYPTOMINISAT_PATH.\n\nKeep all files together." > release-staging/temp/README.txt
-          fi
+          BIN_NAME="APS_Optimizer_V3_Linux"
+          cat > release-staging/temp/README.txt <<EOF
+APS Optimizer v$VERSION
+
+How to Run:
+  chmod +x $BIN_NAME
+  ./$BIN_NAME
+
+Requirements:
+  - Linux desktop (GTK3, WebKit2GTK)
+  - .NET 8 Runtime (framework-dependent build)
+
+Ubuntu dependencies example:
+  sudo apt-get update && sudo apt-get install -y libgtk-3-0 libwebkit2gtk-4.1-0 libicu-dev libharfbuzz0b libpango-1.0-0 libx11-6
+
+Solver:
+  CryptoMiniSat binary auto-downloads; override with CRYPTOMINISAT_PATH.
+
+Keep all files together.
+EOF
           (cd release-staging/temp && zip -r "../${RELEASE_NAME}.zip" .)
           rm -rf release-staging/temp
           echo "RELEASE_ARCHIVE=${RELEASE_NAME}.zip" >> $GITHUB_ENV
