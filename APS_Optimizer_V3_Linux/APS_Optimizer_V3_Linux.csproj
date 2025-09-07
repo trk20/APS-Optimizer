@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>APS_Optimizer_V3_Linux</AssemblyName>
+    <RootNamespace>APS_Optimizer_V3_Linux</RootNamespace>
+    <RunWorkingDirectory>$(MSBuildThisFileDirectory)</RunWorkingDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Uno.WinUI.Skia.Gtk" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\APS_Optimizer_V3\APS_Optimizer_V3.csproj" />
+  </ItemGroup>
+</Project>

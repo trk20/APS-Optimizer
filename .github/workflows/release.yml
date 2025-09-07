@@ -3,8 +3,8 @@ name: Build and Release
 on:
   push:
     tags:
-      - "v*" # Triggers on version tags like v1.0.0
-  workflow_dispatch: # Allows manual triggering
+      - "v*"
+  workflow_dispatch:
     inputs:
       version:
         description: "Release version"
@@ -16,98 +16,110 @@ on:
         default: "- Automated release build"
 
 jobs:
-  build-and-release:
-    runs-on: windows-latest
-
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            shell: pwsh
+            zip_suffix: windows-x64
+            project: APS_Optimizer_V3/APS_Optimizer_V3.csproj
+            framework: net8.0-desktop
+          - os: ubuntu-latest
+            rid: linux-x64
+            shell: bash
+            zip_suffix: linux-x64
+            project: APS_Optimizer_V3_Linux/APS_Optimizer_V3_Linux.csproj
+            framework: net8.0
+          - os: ubuntu-latest
+            rid: linux-arm64
+            shell: bash
+            zip_suffix: linux-arm64
+            project: APS_Optimizer_V3_Linux/APS_Optimizer_V3_Linux.csproj
+            framework: net8.0
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "8.0.x"
-
-      - name: Restore dependencies
+          dotnet-version: 8.0.x
+      - name: Restore
         run: dotnet restore
-
-      - name: Build and Publish Application
+      - name: Publish (${{ matrix.rid }})
+        shell: ${{ matrix.shell }}
         run: |
-          dotnet publish "APS_Optimizer_V3/APS_Optimizer_V3.csproj" --configuration Release --framework net8.0-desktop --runtime win-x64 --self-contained false -p:PublishSingleFile=true --output "publish-output"
-
-      - name: Create release package
+          dotnet publish "${{ matrix.project }}" \
+            --configuration Release \
+            --framework ${{ matrix.framework }} \
+            --runtime ${{ matrix.rid }} \
+            --self-contained false \
+            --output publish-output
+      - name: Package (${{ matrix.rid }})
+        shell: ${{ matrix.shell }}
         run: |
-          $version = if ($env:GITHUB_REF -match 'refs/tags/v(.+)') { $matches[1] } else { "${{ github.event.inputs.version }}" }
-          $releaseName = "APS-Optimizer-v$version"
+          VERSION_TAG="${GITHUB_REF##*/}"
+          if [ "${{ matrix.shell }}" = "pwsh" ]; then VERSION_TAG=$(if ($env:GITHUB_REF -match 'refs/tags/(v.+)') { $matches[1] } else { "${{ github.event.inputs.version }}" }); fi
+          VERSION=${VERSION_TAG#v}
+          RELEASE_NAME="APS-Optimizer-v${VERSION}-${{ matrix.zip_suffix }}"
+          mkdir -p release-staging/temp
+          cp -r publish-output/* release-staging/temp/
+          # Remove PDBs if any
+          find release-staging/temp -name "*.pdb" -delete || true
+          # README
+          if [ "${{ matrix.rid }}" = "win-x64" ]; then
+            echo -e "APS Optimizer v$VERSION\n\nHow to Run:\n  Double-click APS_Optimizer_V3.exe\n\nRequirements:\n  - Windows 10/11\n  - .NET 8 Desktop Runtime (if not already installed)\n\nNotes:\n  * CryptoMiniSat downloads automatically on first solve.\n  * Set CRYPTOMINISAT_PATH to override solver path.\n\nKeep all files together." > release-staging/temp/README.txt
+          else
+            BIN_NAME="APS_Optimizer_V3_Linux"
+            echo -e "APS Optimizer v$VERSION\n\nHow to Run:\n  chmod +x $BIN_NAME\n  ./$BIN_NAME\n\nRequirements:\n  - Linux desktop (GTK3, WebKit2GTK)\n  - .NET 8 Runtime (framework-dependent build)\n\nUbuntu dependencies example:\n  sudo apt-get update && sudo apt-get install -y libgtk-3-0 libwebkit2gtk-4.1-0 libicu-dev libharfbuzz0b libpango-1.0-0 libx11-6\n\nSolver:\n  CryptoMiniSat binary auto-downloads; override with CRYPTOMINISAT_PATH.\n\nKeep all files together." > release-staging/temp/README.txt
+          fi
+          (cd release-staging/temp && zip -r "../${RELEASE_NAME}.zip" .)
+          rm -rf release-staging/temp
+          echo "RELEASE_ARCHIVE=${RELEASE_NAME}.zip" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+      - name: Upload artifact (${{ matrix.rid }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: APS-Optimizer-${{ matrix.zip_suffix }}
+          path: release-staging/*.zip
 
-          # Create directories
-          if (!(Test-Path "release-staging")) { New-Item -ItemType Directory -Path "release-staging" }
-          $tempDir = "release-staging\temp"
-          if (!(Test-Path $tempDir)) { New-Item -ItemType Directory -Path $tempDir }
-
-          Write-Host "Creating release package: $releaseName"
-
-          # Copy files excluding debug symbols
-          $sourceDir = "publish-output"
-          $items = Get-ChildItem -Path $sourceDir -Recurse
-          foreach ($item in $items) {
-              if ($item.PSIsContainer -or $item.Extension -eq ".pdb") { continue }
-              
-              $sourcePath = $item.FullName
-              $relativePath = $sourcePath.Replace((Resolve-Path $sourceDir).Path, "").TrimStart("\")
-              $destinationPath = Join-Path $tempDir $relativePath
-              $destinationDir = Split-Path $destinationPath -Parent
-              
-              if (!(Test-Path $destinationDir)) {
-                  New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
-              }
-              
-              Copy-Item $sourcePath $destinationPath
-          }
-
-          # Create documentation
-          $readmeText = "APS Optimizer v$version`r`n`r`nHow to Run:`r`nRun APS_Optimizer_V3.exe`r`n`r`nRequirements:`r`n- Windows 10+`r`n- .NET 8 Desktop Runtime`r`n`r`nKeep all files together."
-          Set-Content -Path "$tempDir\README.txt" -Value $readmeText -Encoding UTF8
-
-          Write-Host "Package contents:"
-          Get-ChildItem -Path $tempDir | ForEach-Object { Write-Host "  $($_.Name)" }
-
-          # Create archive
-          $tempPath = (Resolve-Path $tempDir).Path
-          $zipPath = (Resolve-Path "release-staging").Path + "\$releaseName.zip"
-
-          # Create zip from temp directory contents
-          Compress-Archive -Path "$tempDir\*" -DestinationPath $zipPath -Force
-
-          # Clean up temp directory
-          Remove-Item -Path $tempDir -Recurse -Force
-
-          Write-Output "RELEASE_NAME=$releaseName" >> $env:GITHUB_ENV
-          Write-Output "VERSION=$version" >> $env:GITHUB_ENV
+  release:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: collected
+      - name: Prep version
         shell: pwsh
-
+        run: |
+          if ($env:GITHUB_REF -match 'refs/tags/(v.+)') { $ver=$matches[1] } else { $ver='${{ github.event.inputs.version }}' }
+          echo "VERSION=$ver" >> $env:GITHUB_ENV
+          echo "RELEASE_NAME=APS-Optimizer-$ver" >> $env:GITHUB_ENV
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ env.VERSION }}
+          tag_name: ${{ env.VERSION }}
           name: ${{ env.RELEASE_NAME }}
           body: |
             ## Release Notes
             ${{ github.event.inputs.release_notes }}
 
             ## Installation
-            1. Download and extract the zip file
-            2. Run APS_Optimizer_V3.exe - no installation required!
-            3. If Windows blocks the app, click "More Info" then "Run Anyway" to bypass the warning
+            Download the archive for your platform and extract it.
+
+            Windows: Double-click APS_Optimizer_V3.exe
+            Linux:   chmod +x APS_Optimizer_V3_Linux && ./APS_Optimizer_V3_Linux
 
             ## Requirements
-            - Windows 10 or later
-            - .NET 8 Desktop Runtime (you'll be prompted to install if missing)
+            - .NET 8 Runtime (Desktop for Windows build)
+            - Or rebuild from source with 'dotnet publish'
 
-            **Note: This is a portable application - keep all files together.**
-
+            **Keep all published files together.**
           files: |
-            release-staging/*.zip
+            collected/**/**/*.zip
           draft: false
           prerelease: false
         env:

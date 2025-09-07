@@ -414,46 +414,76 @@ public class SolverService
             return (false, null, $"SAT Solver not found at '{CryptoMiniSatPath}'");
         }
 
+        // Write CNF to a temporary file
+        string tempFile = Path.Combine(Path.GetTempPath(), $"aps_solver_{Guid.NewGuid():N}.cnf");
+        try
+        {
+            await File.WriteAllTextAsync(tempFile, cnfContent, Encoding.ASCII);
+        }
+        catch (Exception ex)
+        {
+            return (false, null, $"Failed to write CNF temp file: {ex.Message}");
+        }
+
+        string finalArgs;
+        if (!string.IsNullOrWhiteSpace(solverArgs) && solverArgs.Contains("{cnf}", StringComparison.OrdinalIgnoreCase))
+        {
+            finalArgs = solverArgs.Replace("{cnf}", QuoteIfNeeded(tempFile));
+        }
+        else if (!string.IsNullOrWhiteSpace(solverArgs))
+        {
+            finalArgs = solverArgs + " " + QuoteIfNeeded(tempFile);
+        }
+        else
+        {
+            finalArgs = QuoteIfNeeded(tempFile);
+        }
+
         var processInfo = new ProcessStartInfo
         {
             FileName = CryptoMiniSatPath,
-            Arguments = string.IsNullOrWhiteSpace(solverArgs) ? string.Empty : solverArgs,
+            Arguments = finalArgs,
             UseShellExecute = false,
-            RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             CreateNoWindow = true,
-            StandardInputEncoding = Encoding.ASCII,
             StandardOutputEncoding = Encoding.ASCII,
             StandardErrorEncoding = Encoding.ASCII
         };
 
-        using var process = new Process { StartInfo = processInfo };
-
+        using var process = new Process { StartInfo = processInfo, EnableRaisingEvents = false };
         try
         {
-            process.Start();
-            await process.StandardInput.WriteAsync(cnfContent);
-            process.StandardInput.Close();
+            var startSw = Stopwatch.StartNew();
+            if (!process.Start())
+            {
+                return (false, null, "Failed to start SAT solver process.");
+            }
 
             Task<string> outputTask = process.StandardOutput.ReadToEndAsync();
             Task<string> errorTask = process.StandardError.ReadToEndAsync();
-
             await process.WaitForExitAsync();
+            startSw.Stop();
+
             string output = await outputTask;
             string errorOutput = await errorTask;
 
-            bool logFullOutput = solverArgs?.Contains("-v") ?? false;
-            if (logFullOutput)
-            {
-                Debug.WriteLine($"--- CryptoMiniSat Standard Output ---");
-                Debug.WriteLine(output.Split("s SATISFIABLE")[0]);
-                Debug.WriteLine($"-------------------------------------");
-            }
-
             if (!string.IsNullOrWhiteSpace(errorOutput))
             {
-                Debug.WriteLine($"SAT Solver Error Output:\n{errorOutput}");
+                // Capture common broken pipe / I/O issues
+                if (errorOutput.Contains("Broken pipe", StringComparison.OrdinalIgnoreCase))
+                {
+                    Debug.WriteLine("Detected 'Broken pipe' in solver stderr. Switching to file-based CNF already attempted; investigate CryptoMiniSat binary & permissions.");
+                }
+                Debug.WriteLine($"SAT Solver stderr:\n{errorOutput}");
+            }
+
+            bool verbose = solverArgs?.Contains("-v") ?? false;
+            if (verbose)
+            {
+                Debug.WriteLine("--- CryptoMiniSat STDOUT (truncated) ---");
+                Debug.WriteLine(output.Length > 4000 ? output.Substring(0, 4000) + "..." : output);
+                Debug.WriteLine("----------------------------------------");
             }
 
             if (output.Contains("s SATISFIABLE"))
@@ -461,21 +491,34 @@ public class SolverService
                 var solutionVars = ParseSolverOutput(output);
                 return (true, solutionVars, null);
             }
-            else if (output.Contains("s UNSATISFIABLE"))
+            if (output.Contains("s UNSATISFIABLE"))
             {
                 return (false, null, null);
             }
-            else
+
+            if (process.ExitCode != 0)
             {
-                Debug.WriteLine("Warning: Could not determine SAT/UNSAT from solver output.");
-                return (false, null, null);
+                return (false, null, $"Solver exited code {process.ExitCode} without SAT/UNSAT marker. stderr: {Truncate(errorOutput, 500)}");
             }
+
+            Debug.WriteLine("Warning: Solver finished without recognizable SAT/UNSAT line.");
+            return (false, null, null);
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error running SAT solver: {ex.Message}");
             return (false, null, $"{ex.Message}");
         }
+        finally
+        {
+            try { if (File.Exists(tempFile)) File.Delete(tempFile); } catch { /* ignore */ }
+        }
+    }
+
+    private static string QuoteIfNeeded(string path) => path.Contains(' ') ? $"\"{path}\"" : path;
+    private static string Truncate(string? s, int max)
+    {
+        if (string.IsNullOrEmpty(s)) return string.Empty;
+        return s.Length <= max ? s : s.Substring(0, max) + "...";
     }
 
     private List<int> ParseSolverOutput(string output)
