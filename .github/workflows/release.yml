@@ -58,7 +58,7 @@ jobs:
           New-Item -ItemType Directory -Path 'release-staging/temp' -Force | Out-Null
           Copy-Item publish-output\* -Destination release-staging/temp -Recurse
           Get-ChildItem -Recurse -Include *.pdb release-staging/temp | Remove-Item -Force -ErrorAction SilentlyContinue
-          @"
+          $readme = @"
 APS Optimizer v$version
 
 How to Run:
@@ -73,7 +73,8 @@ Notes:
   * Set CRYPTOMINISAT_PATH to override solver path.
 
 Keep all files together.
-"@ | Set-Content release-staging/temp/README.txt -Encoding UTF8
+"@
+          Set-Content release-staging/temp/README.txt -Value $readme -Encoding UTF8
           Compress-Archive -Path release-staging/temp/* -DestinationPath release-staging/$releaseName.zip
           Remove-Item release-staging/temp -Recurse -Force
           "RELEASE_ARCHIVE=$releaseName.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -86,7 +87,7 @@ Keep all files together.
           VERSION_TAG="${GITHUB_REF##*/}"
           if [[ ! "$VERSION_TAG" =~ ^v ]]; then VERSION_TAG="${{ github.event.inputs.version }}"; fi
           VERSION="${VERSION_TAG#v}"
-            RELEASE_NAME="APS-Optimizer-v${VERSION}-${{ matrix.zip_suffix }}"
+          RELEASE_NAME="APS-Optimizer-v${VERSION}-${{ matrix.zip_suffix }}"
           mkdir -p release-staging/temp
           cp -r publish-output/* release-staging/temp/
           find release-staging/temp -name "*.pdb" -delete || true
