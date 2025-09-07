@@ -44,8 +44,13 @@ jobs:
           dotnet-version: 8.0.x
       - name: Restore
         run: dotnet restore
-      - name: Publish (${{ matrix.rid }})
-        run: dotnet publish "${{ matrix.project }}" -c Release -f ${{ matrix.framework }} -r ${{ matrix.rid }} --self-contained false -o publish-output
+      - name: Publish (${{ matrix.rid }}) - Windows
+        if: matrix.os == 'windows-latest'
+        run: dotnet publish "${{ matrix.project }}" -c Release -f ${{ matrix.framework }} -r ${{ matrix.rid }} --self-contained false -p:PublishSingleFile=true -o publish-output
+
+      - name: Publish (${{ matrix.rid }}) - Linux
+        if: matrix.os != 'windows-latest'
+        run: dotnet publish "${{ matrix.project }}" -c Release -f ${{ matrix.framework }} -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=false -o publish-output
 
       - name: Package (Windows)
         if: matrix.os == 'windows-latest'
