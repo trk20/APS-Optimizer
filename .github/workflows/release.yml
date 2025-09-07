@@ -22,19 +22,16 @@ jobs:
         include:
           - os: windows-latest
             rid: win-x64
-            shell: pwsh
             zip_suffix: windows-x64
             project: APS_Optimizer_V3/APS_Optimizer_V3.csproj
             framework: net8.0-desktop
           - os: ubuntu-latest
             rid: linux-x64
-            shell: bash
             zip_suffix: linux-x64
             project: APS_Optimizer_V3_Linux/APS_Optimizer_V3_Linux.csproj
             framework: net8.0
           - os: ubuntu-latest
             rid: linux-arm64
-            shell: bash
             zip_suffix: linux-arm64
             project: APS_Optimizer_V3_Linux/APS_Optimizer_V3_Linux.csproj
             framework: net8.0
@@ -48,20 +45,14 @@ jobs:
       - name: Restore
         run: dotnet restore
       - name: Publish (${{ matrix.rid }})
-        shell: ${{ matrix.shell }}
         run: |
-          dotnet publish "${{ matrix.project }}" \
-            --configuration Release \
-            --framework ${{ matrix.framework }} \
-            --runtime ${{ matrix.rid }} \
-            --self-contained false \
-            --output publish-output
+          dotnet publish "${{ matrix.project }}" --configuration Release --framework ${{ matrix.framework }} --runtime ${{ matrix.rid }} --self-contained false --output publish-output
       - name: Package (${{ matrix.rid }})
-        shell: ${{ matrix.shell }}
+        shell: bash
         run: |
           VERSION_TAG="${GITHUB_REF##*/}"
-          if [ "${{ matrix.shell }}" = "pwsh" ]; then VERSION_TAG=$(if ($env:GITHUB_REF -match 'refs/tags/(v.+)') { $matches[1] } else { "${{ github.event.inputs.version }}" }); fi
-          VERSION=${VERSION_TAG#v}
+          if [[ ! "$VERSION_TAG" =~ ^v ]]; then VERSION_TAG="${{ github.event.inputs.version }}"; fi
+          VERSION="${VERSION_TAG#v}"
           RELEASE_NAME="APS-Optimizer-v${VERSION}-${{ matrix.zip_suffix }}"
           mkdir -p release-staging/temp
           cp -r publish-output/* release-staging/temp/
