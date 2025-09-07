@@ -58,23 +58,23 @@ jobs:
           New-Item -ItemType Directory -Path 'release-staging/temp' -Force | Out-Null
           Copy-Item publish-output\* -Destination release-staging/temp -Recurse
           Get-ChildItem -Recurse -Include *.pdb release-staging/temp | Remove-Item -Force -ErrorAction SilentlyContinue
-          $readme = @"
-APS Optimizer v$version
-
-How to Run:
-  Double-click APS_Optimizer_V3.exe
-
-Requirements:
-  - Windows 10/11
-  - .NET 8 Desktop Runtime (if not already installed)
-
-Notes:
-  * CryptoMiniSat downloads automatically on first solve.
-  * Set CRYPTOMINISAT_PATH to override solver path.
-
-Keep all files together.
-"@
-          Set-Content release-staging/temp/README.txt -Value $readme -Encoding UTF8
+          $readmeLines = @(
+            "APS Optimizer v$version",
+            "",
+            "How to Run:",
+            "  Double-click APS_Optimizer_V3.exe",
+            "",
+            "Requirements:",
+            "  - Windows 10/11",
+            "  - .NET 8 Desktop Runtime (if not already installed)",
+            "",
+            "Notes:",
+            "  * CryptoMiniSat downloads automatically on first solve.",
+            "  * Set CRYPTOMINISAT_PATH to override solver path.",
+            "",
+            "Keep all files together."
+          )
+          $readmeLines -join "`n" | Set-Content release-staging/temp/README.txt -Encoding UTF8
           Compress-Archive -Path release-staging/temp/* -DestinationPath release-staging/$releaseName.zip
           Remove-Item release-staging/temp -Recurse -Force
           "RELEASE_ARCHIVE=$releaseName.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
