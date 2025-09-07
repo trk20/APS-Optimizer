@@ -66,7 +66,7 @@ jobs:
             "",
             "Requirements:",
             "  - Windows 10/11",
-            "  - .NET 8 Desktop Runtime (if not already installed)",
+            "  - .NET 8 Desktop Runtime (if not already installed) - will prompt to download",
             "",
             "Notes:",
             "  * CryptoMiniSat downloads automatically on first solve.",
@@ -100,11 +100,8 @@ jobs:
             "  ./$BIN_NAME" \
             "" \
             "Requirements:" \
-            "  - Linux desktop (GTK3, WebKit2GTK)" \
+            "  - Linux desktop" \
             "  - .NET 8 Runtime (framework-dependent build)" \
-            "" \
-            "Ubuntu dependencies example:" \
-            "  sudo apt-get update && sudo apt-get install -y libgtk-3-0 libwebkit2gtk-4.1-0 libicu-dev libharfbuzz0b libpango-1.0-0 libx11-6" \
             "" \
             "Solver:" \
             "  CryptoMiniSat binary auto-downloads; override with CRYPTOMINISAT_PATH." \
@@ -148,11 +145,10 @@ jobs:
             Download the archive for your platform and extract it.
 
             Windows: Double-click APS_Optimizer_V3.exe
-            Linux:   chmod +x APS_Optimizer_V3_Linux && ./APS_Optimizer_V3_Linux
+            Linux:   `chmod +x APS_Optimizer_V3_Linux && ./APS_Optimizer_V3_Linux`
 
             ## Requirements
             - .NET 8 Runtime (Desktop for Windows build)
-            - Or rebuild from source with 'dotnet publish'
 
             **Keep all published files together.**
           files: |
