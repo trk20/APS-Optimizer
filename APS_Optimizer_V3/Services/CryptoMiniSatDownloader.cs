@@ -1,11 +1,5 @@
-using System;
-using System.IO;
 using System.IO.Compression;
-using System.Threading.Tasks;
-using System.Linq;
-using System.Net.Http;
-using System.Threading;
-using System.Text.Json;
+using System.Runtime.InteropServices;
 using Newtonsoft.Json.Linq;
 
 namespace APS_Optimizer_V3.Services;
@@ -13,17 +7,40 @@ namespace APS_Optimizer_V3.Services;
 public class CryptoMiniSatDownloader
 {
     private const string GITHUB_API_URL = "https://api.github.com/repos/msoos/cryptominisat/releases/latest";
-    private const string EXE_NAME = "cryptominisat5.exe";
+    private const string WINDOWS_EXE_NAME = "cryptominisat5.exe";
+    private const string LINUX_EXE_NAME = "cryptominisat5";
 
     public static async Task<string> EnsureCryptoMiniSatAvailable()
     {
-        // Use the application's actual deployment directory instead of AppData
+        bool isWindows = OperatingSystem.IsWindows();
+        bool isLinux = OperatingSystem.IsLinux();
+        if (!isWindows && !isLinux)
+        {
+            throw new PlatformNotSupportedException("Only Windows and Linux are supported for automatic CryptoMiniSat download.");
+        }
+
+        var arch = RuntimeInformation.ProcessArchitecture;
+        string linuxArchSegment = arch switch
+        {
+            Architecture.X64 => "linux-amd64",
+            Architecture.Arm64 => "linux-arm64",
+            _ => throw new PlatformNotSupportedException($"Unsupported architecture: {arch}")
+        };
+
+        // 2. Allow override via environment variable
+        var overridePath = Environment.GetEnvironmentVariable("CRYPTOMINISAT_PATH");
+        if (!string.IsNullOrWhiteSpace(overridePath) && File.Exists(overridePath))
+        {
+            return overridePath!;
+        }
+
         var appDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)
                           ?? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var cryptoMiniSatDir = Path.Combine(appDirectory, "CryptoMiniSat");
         Directory.CreateDirectory(cryptoMiniSatDir);
 
-        var exePath = Path.Combine(cryptoMiniSatDir, EXE_NAME);
+        string exeName = isWindows ? WINDOWS_EXE_NAME : LINUX_EXE_NAME;
+        var exePath = Path.Combine(cryptoMiniSatDir, exeName);
 
         if (File.Exists(exePath))
         {
@@ -32,8 +49,8 @@ public class CryptoMiniSatDownloader
 
         try
         {
-            Console.WriteLine("CryptoMiniSat not found, downloading...");
-            await DownloadAndExtractCryptoMiniSat(exePath);
+            Console.WriteLine($"CryptoMiniSat not found, downloading for {(isWindows ? "Windows" : "Linux")} {arch}...");
+            await DownloadAndExtractCryptoMiniSat(exePath, linuxArchSegment, isWindows, isLinux, exeName);
             return exePath;
         }
         catch (Exception ex)
@@ -42,7 +59,7 @@ public class CryptoMiniSatDownloader
         }
     }
 
-    private static async Task DownloadAndExtractCryptoMiniSat(string targetExePath)
+    private static async Task DownloadAndExtractCryptoMiniSat(string targetExePath, string linuxArchSegment, bool isWindows, bool isLinux, string exeName)
     {
         using var httpClient = new HttpClient();
         httpClient.DefaultRequestHeaders.Add("User-Agent", "trk20/APS-Optimizer");
@@ -52,13 +69,9 @@ public class CryptoMiniSatDownloader
         {
             Console.WriteLine("Getting latest release info from GitHub...");
 
-            // Get latest release info
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             var releaseJson = await httpClient.GetStringAsync(GITHUB_API_URL, cts.Token);
-
-            var releaseInfo = JToken.Parse(releaseJson)
-                .ToObject<GitHubRelease>();
-
+            var releaseInfo = JToken.Parse(releaseJson).ToObject<GitHubRelease>();
             if (releaseInfo?.Assets == null || !releaseInfo.Assets.Any())
             {
                 throw new InvalidOperationException("No assets found in latest release");
@@ -66,56 +79,37 @@ public class CryptoMiniSatDownloader
 
             Console.WriteLine($"Found {releaseInfo.Assets.Length} assets in latest release");
 
-            // Find Windows zip asset
-            var windowsAsset = releaseInfo.Assets.FirstOrDefault(a =>
-                !string.IsNullOrEmpty(a.Name) &&
-                a.Name.Contains("win", StringComparison.OrdinalIgnoreCase) &&
-                a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase));
+            GitHubAsset? chosenAsset = null;
+            if (isWindows)
+            {
+                chosenAsset = releaseInfo.Assets.FirstOrDefault(a => !string.IsNullOrEmpty(a.Name) && a.Name.Contains("win", StringComparison.OrdinalIgnoreCase) && a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase));
+            }
+            else if (isLinux)
+            {
+                chosenAsset = releaseInfo.Assets.FirstOrDefault(a => !string.IsNullOrEmpty(a.Name) && a.Name.Contains(linuxArchSegment, StringComparison.OrdinalIgnoreCase) && a.Name.Contains("linux", StringComparison.OrdinalIgnoreCase) && a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase));
+            }
 
-            if (windowsAsset == null)
+            if (chosenAsset == null)
             {
                 var assetNames = string.Join(", ", releaseInfo.Assets.Select(a => a.Name));
-                throw new InvalidOperationException($"No Windows zip file found in latest release. Available assets: {assetNames}");
+                throw new InvalidOperationException($"No suitable CryptoMiniSat asset found for platform. Available: {assetNames}");
             }
 
-            Console.WriteLine($"Found Windows asset: {windowsAsset.Name}");
-            Console.WriteLine($"Downloading from: {windowsAsset.Browser_download_url}");
+            Console.WriteLine($"Selected asset: {chosenAsset.Name}");
+            Console.WriteLine($"Downloading from: {chosenAsset.Browser_download_url}");
 
-            // Download zip file
             using var downloadCts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
-            var zipBytes = await httpClient.GetByteArrayAsync(windowsAsset.Browser_download_url, downloadCts.Token);
+            var bytes = await httpClient.GetByteArrayAsync(chosenAsset.Browser_download_url!, downloadCts.Token);
+            using var rawStream = new MemoryStream(bytes);
 
-            //Console.WriteLine($"Downloaded {zipBytes.Length} bytes");
+            await ExtractExecutableFromArchive(rawStream, chosenAsset.Name!, targetExePath, exeName);
 
-            // Extract exe from zip
-            using var zipStream = new MemoryStream(zipBytes);
-            using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
-
-            //Console.WriteLine($"Zip contains {archive.Entries.Count} entries:");
-            foreach (var entry in archive.Entries)
+            if (OperatingSystem.IsLinux())
             {
-                Console.WriteLine($"  - {entry.FullName}");
+                TryMarkExecutable(targetExePath);
             }
 
-            // Find exe file in zip
-            var exeEntry = archive.Entries.FirstOrDefault(e =>
-                e.Name.Equals(EXE_NAME, StringComparison.OrdinalIgnoreCase) ||
-                e.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
-
-            if (exeEntry == null)
-            {
-                var entryNames = string.Join(", ", archive.Entries.Select(e => e.Name));
-                throw new InvalidOperationException($"No executable file found in {windowsAsset.Name}. Archive contains: {entryNames}");
-            }
-
-            Console.WriteLine($"Found executable: {exeEntry.Name}");
-
-            // Extract exe to target path
-            using var exeStream = exeEntry.Open();
-            using var fileStream = File.Create(targetExePath);
-            await exeStream.CopyToAsync(fileStream);
-
-            Console.WriteLine($"Successfully extracted {exeEntry.Name} to {targetExePath}");
+            Console.WriteLine($"Successfully extracted {exeName} to {targetExePath}");
         }
         catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
         {
@@ -129,6 +123,45 @@ public class CryptoMiniSatDownloader
         {
             Console.WriteLine($"Error during download: {ex.Message}");
             throw;
+        }
+    }
+
+    private static async Task ExtractExecutableFromArchive(Stream archiveStream, string assetName, string targetExePath, string exeName)
+    {
+        if (!assetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Unexpected archive format '{assetName}'. Only .zip assets are supported.");
+        }
+
+        using var archive = new ZipArchive(archiveStream, ZipArchiveMode.Read, leaveOpen: true);
+        foreach (var entry in archive.Entries)
+        {
+            if (string.Equals(entry.Name, exeName, StringComparison.OrdinalIgnoreCase) ||
+                (OperatingSystem.IsWindows() && entry.Name.Equals(WINDOWS_EXE_NAME, StringComparison.OrdinalIgnoreCase)))
+            {
+                using var exeStream = entry.Open();
+                using var fileStream = File.Create(targetExePath);
+                await exeStream.CopyToAsync(fileStream);
+                return;
+            }
+        }
+        throw new InvalidOperationException($"Executable {exeName} not found inside archive {assetName}.");
+    }
+
+    private static void TryMarkExecutable(string path)
+    {
+        try
+        {
+#if NET7_0_OR_GREATER
+            // Grant rwx for user, rx for group/other
+            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+                                       UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+                                       UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+#endif
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: Failed to mark {path} as executable: {ex.Message}");
         }
     }
 }

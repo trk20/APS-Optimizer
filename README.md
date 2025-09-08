@@ -17,9 +17,11 @@ This tool provides a simple, user-friendly method to easily generate density-opt
 
 ---
 
-## Installation (Windows)
+## Installation
 
-1. Download `APS-Optimizer-{version}.zip` from the [latest release](https://github.com/trk20/APS-Optimizer/releases).
+#### Windows
+
+1. Download `APS-Optimizer-{version}-windows-x64.zip` from the [latest release](https://github.com/trk20/APS-Optimizer/releases).
 2. Extract the contents to a folder.
 3. Run the contained `APS_Optimizer_V3.exe` executable
 4. When Windows gives the "Windows protected your PC" popup click on "More Info" then "Run Anyways"
@@ -35,6 +37,14 @@ This will prompt for the .NET 8.0 runtime if needed.
 **Q:** Why does windows block the program?
 
 **A:** The executable is "unsigned" - it doesn't have a special signature/certificate saying who made it, when, etc so windows can't tell whether or not it's safe. Reason it isn't signed is that that signing an exe is a pain - if you know better and think it's easy, feel free to create a PR for the workflow changes and I'll get it merged.
+
+#### Linux
+
+1. Download the relevant zip file from the [latest release](https://github.com/trk20/APS-Optimizer/releases) - `linux-x64` or `linux-arm64` depending on your cpu (if you don't know, you probably want the `linux-x64` version).
+2. Extract the contents to a folder.
+3. In terminal, navigate to the folder and run
+   `chmod +x APS_Optimizer_V3_Linux && ./APS_Optimizer_V3_Linux`
+4. All done - the program should open.
 
 ---
 
